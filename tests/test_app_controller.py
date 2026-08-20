@@ -14,6 +14,7 @@ from lvms_stat.workflow import (
     StepKind,
     WorkflowStep,
 )
+from lvms_stat.workflow_store import WorkflowStore
 
 
 class FakeView:
@@ -100,6 +101,36 @@ class ControllerTests(unittest.TestCase):
         self.controller.close()
         self.assertTrue(self.service.opened)
         self.assertTrue(self.service.closed)
+
+    def test_synthetic_record_review_never_persists_typed_values(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            view, service = FakeView(), FakeService()
+            store = WorkflowStore(root / "workflows")
+            config = AppConfig(
+                "https://lvms.example.invalid/", "https://lvms.example.invalid",
+                root / "profile", root / "downloads", root / "workflows",
+            )
+            controller = AppController(view, service, store, config)
+            controller.start("Example report", "Defined Reports export")
+            controller.handle_service_event(ServiceEvent(ServiceEventKind.STARTED))
+            steps = (
+                WorkflowStep(1, StepKind.FIELD_EDITED, ControlIdentity("INPUT", label="From date")),
+                WorkflowStep(2, StepKind.FIELD_EDITED, ControlIdentity("INPUT", label="To date")),
+                WorkflowStep(3, StepKind.ACTIVATE, ControlIdentity("BUTTON", label="Export")),
+            )
+            controller.handle_service_event(ServiceEvent(ServiceEventKind.STEPS, steps))
+            controller.handle_service_event(ServiceEvent(ServiceEventKind.DOWNLOAD_DETECTED))
+            controller.assign_role(1, ParameterRole.FROM_DATE)
+            controller.assign_role(2, ParameterRole.TO_DATE)
+            controller.save()
+            saved = next((root / "workflows").glob("*.json"))
+            combined = saved.read_text(encoding="utf-8") + " ".join(map(str, view.messages))
+            for forbidden in (
+                "15.08.2026", "20.08.2026", "FORBIDDEN-TYPED-VALUE",
+                "JSESSIONID", "https://", ".csv", str(root),
+            ):
+                self.assertNotIn(forbidden.lower(), combined.lower())
 
 
 if __name__ == "__main__":
