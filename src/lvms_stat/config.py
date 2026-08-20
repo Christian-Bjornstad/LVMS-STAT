@@ -19,6 +19,12 @@ class ProbeConfig:
     profile_directory: Path
 
 
+@dataclass(frozen=True)
+class AppConfig(ProbeConfig):
+    download_directory: Path
+    workflow_directory: Path
+
+
 def _required_text(raw: Mapping[str, object], key: str) -> str:
     value = raw.get(key)
     if not isinstance(value, str) or not value.strip():
@@ -101,4 +107,72 @@ def load_config(
         raw,
         repository_root=repository_root,
         allowed_profile_root=allowed_profile_root,
+    )
+
+
+def _local_root(candidate: Path | None) -> Path:
+    if candidate is None:
+        text = os.environ.get("LOCALAPPDATA")
+        if not text:
+            raise ConfigError("local application-data directory is unavailable")
+        candidate = Path(text)
+    return candidate.expanduser().resolve()
+
+
+def _external_directory(
+    raw: Mapping[str, object], key: str, repository_root: Path
+) -> Path:
+    candidate = Path(_required_text(raw, key)).expanduser()
+    if not candidate.is_absolute():
+        raise ConfigError(f"{key} must be an absolute path")
+    resolved = candidate.resolve()
+    repository = repository_root.resolve()
+    if resolved == repository or repository in resolved.parents:
+        raise ConfigError(f"{key} must be outside the repository")
+    return resolved
+
+
+def validate_app_config(
+    raw: Mapping[str, object],
+    *,
+    repository_root: Path,
+    allowed_local_root: Path | None = None,
+) -> AppConfig:
+    local = _local_root(allowed_local_root)
+    probe = validate_config(
+        raw,
+        repository_root=repository_root,
+        allowed_profile_root=local,
+    )
+    downloads = _external_directory(raw, "download_directory", repository_root)
+    workflows = _external_directory(raw, "workflow_directory", repository_root)
+    if workflows == local or local not in workflows.parents:
+        raise ConfigError("workflow_directory must be beneath local application data")
+    return AppConfig(
+        landing_url=probe.landing_url,
+        expected_origin=probe.expected_origin,
+        profile_directory=probe.profile_directory,
+        download_directory=downloads,
+        workflow_directory=workflows,
+    )
+
+
+def load_app_config(
+    path: Path,
+    *,
+    repository_root: Path,
+    allowed_local_root: Path | None = None,
+) -> AppConfig:
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ConfigError("configuration file could not be read") from exc
+    except json.JSONDecodeError as exc:
+        raise ConfigError("configuration file is not valid JSON") from exc
+    if not isinstance(raw, dict):
+        raise ConfigError("configuration must contain a JSON object")
+    return validate_app_config(
+        raw,
+        repository_root=repository_root,
+        allowed_local_root=allowed_local_root,
     )
