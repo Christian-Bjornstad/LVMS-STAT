@@ -82,7 +82,11 @@ def run_probe(
         target = active_dependencies.target_wait(edge.port)
         connection = active_dependencies.connection_open(target)
         page = active_dependencies.page_factory(connection)
-        identity = page.navigate(config.landing_url, config.expected_origin)
+        identity = page.navigate(
+            config.landing_url,
+            config.expected_origin,
+            timeout_seconds=120,
+        )
 
         suffix = f" — {identity.title}" if identity.title else ""
         active_output.write(f"Connected: {identity.origin}{suffix}\n")

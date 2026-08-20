@@ -36,6 +36,7 @@ class FakePage:
         self.identity = identity
         self.controls = controls or []
         self.inspection_calls = 0
+        self.navigation_timeout: float | None = None
 
     def navigate(
         self,
@@ -44,7 +45,8 @@ class FakePage:
         *,
         timeout_seconds: float = 30,
     ) -> PageIdentity:
-        del landing_url, expected_origin, timeout_seconds
+        del landing_url, expected_origin
+        self.navigation_timeout = timeout_seconds
         return self.identity
 
     def inspect_controls(self, expected_origin: str) -> list[dict[str, str]]:
@@ -116,6 +118,7 @@ class ProbeTests(unittest.TestCase):
         )
 
         self.assertEqual(result, 0)
+        self.assertEqual(page.navigation_timeout, 120)
         self.assertEqual(
             output.getvalue(),
             "Connected: https://lvms.example.invalid — LVMS\n",
