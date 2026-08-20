@@ -24,6 +24,7 @@ class UiMessage(StrEnum):
     DOWNLOAD_AMBIGUOUS = "More than one new CSV was detected."
     WORKFLOW_SAVED = "Sanitized workflow saved locally."
     CSV_OPEN_FAILED = "The detected CSV could not be opened locally."
+    INVALID_ACTION = "That action is not available in the current state."
 
 
 @dataclass(frozen=True)

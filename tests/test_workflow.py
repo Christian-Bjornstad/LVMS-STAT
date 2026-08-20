@@ -56,6 +56,22 @@ class WorkflowTests(unittest.TestCase):
                 with self.assertRaises(WorkflowError):
                     validate_workflow(draft)
 
+    def test_rejects_unbounded_or_malformed_control_identity(self) -> None:
+        invalid_controls = (
+            ControlIdentity(""),
+            ControlIdentity("BUTTON", label="x" * 121),
+            ControlIdentity("BUTTON", locator=("x",) * 13),
+            ControlIdentity("BUTTON", locator=("x" * 121,)),
+            ControlIdentity(1),  # type: ignore[arg-type]
+        )
+        for control in invalid_controls:
+            with self.subTest(control=control):
+                draft = WorkflowDraft(
+                    "Valid", "", (WorkflowStep(1, StepKind.ACTIVATE, control),)
+                )
+                with self.assertRaises(WorkflowError):
+                    validate_workflow(draft)
+
 
 if __name__ == "__main__":
     unittest.main()

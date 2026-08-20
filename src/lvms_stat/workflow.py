@@ -81,11 +81,30 @@ def validate_workflow(draft: WorkflowDraft) -> WorkflowDraft:
         raise WorkflowError("workflow name is invalid")
     if not isinstance(draft.notes, str) or len(draft.notes.strip()) > 500:
         raise WorkflowError("workflow notes are invalid")
+    if not isinstance(draft.steps, tuple) or len(draft.steps) > 2000:
+        raise WorkflowError("workflow has too many steps")
     for expected_id, step in enumerate(draft.steps, 1):
         if step.step_id != expected_id or not isinstance(step.kind, StepKind):
             raise WorkflowError("workflow steps are invalid")
+        control = step.control
+        if not isinstance(control, ControlIdentity):
+            raise WorkflowError("workflow control identity is invalid")
+        fields = (
+            control.tag, control.control_type, control.element_id,
+            control.name, control.role, control.label,
+        )
+        if (
+            not control.tag
+            or any(not isinstance(value, str) or len(value) > 120 for value in fields)
+            or not isinstance(control.locator, tuple)
+            or len(control.locator) > 12
+            or any(not isinstance(part, str) or len(part) > 120 for part in control.locator)
+        ):
+            raise WorkflowError("workflow control identity is invalid")
         if step.parameter_role is not None and step.kind is not StepKind.FIELD_EDITED:
             raise WorkflowError("only edited fields can be parameters")
+        if step.parameter_role is not None and not isinstance(step.parameter_role, ParameterRole):
+            raise WorkflowError("workflow parameter role is invalid")
     return replace(draft, name=draft.name.strip(), notes=draft.notes.strip())
 
 

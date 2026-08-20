@@ -28,6 +28,8 @@ RECORDER_INSTALL_SCRIPT_TEMPLATE = r"""
   const existing = root.__lvmsStatSafeRecorder;
   if (existing && existing.nonce === nonce) return existing.marker;
   const state = {nonce, marker: Math.random().toString(36).slice(2), queue: []};
+  const edited = new WeakSet();
+  const activationTypes = ["button", "submit", "reset", "checkbox", "radio"];
   root.__lvmsStatSafeRecorder = state;
   const clean = (text) => String(text || "").replace(/\s+/g, " ").trim().slice(0, 120);
   const excluded = (el) => Boolean(el.closest(
@@ -80,16 +82,25 @@ RECORDER_INSTALL_SCRIPT_TEMPLATE = r"""
   const install = (doc) => {
     doc.addEventListener("click", (event) => {
       const el = event.target && event.target.closest("a,button,input,[role='button'],[role='menuitem']");
-      if (el) candidate("activate", el);
+      if (!el) return;
+      const type = clean(el.getAttribute("type")).toLowerCase();
+      if (el.tagName !== "INPUT" || activationTypes.includes(type)) candidate("activate", el);
     }, true);
     doc.addEventListener("change", (event) => {
       const el = event.target;
       if (el && el.tagName === "SELECT") candidate("select", el);
       else if (el && el.tagName === "INPUT" && ["checkbox", "radio"].includes(clean(el.getAttribute("type")).toLowerCase())) candidate("activate", el);
     }, true);
+    doc.addEventListener("input", (event) => {
+      const el = event.target;
+      if (el && ["INPUT", "TEXTAREA"].includes(el.tagName)) edited.add(el);
+    }, true);
     doc.addEventListener("blur", (event) => {
       const el = event.target;
-      if (el && ["INPUT", "TEXTAREA"].includes(el.tagName)) candidate("field_edited", el);
+      if (el && edited.has(el)) {
+        edited.delete(el);
+        candidate("field_edited", el);
+      }
     }, true);
     for (const frame of doc.querySelectorAll("iframe,frame")) {
       try { if (frame.contentDocument) install(frame.contentDocument); } catch (_) {}

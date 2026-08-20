@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import unittest
 
-from lvms_stat.tk_app import TkUnavailable, format_step, load_tkinter
+from lvms_stat.tk_app import TkUnavailable, format_step, load_tkinter, safe_ui_call
+from lvms_stat.app_controller import UiMessage
+from lvms_stat.workflow import WorkflowError
 from lvms_stat.workflow import ControlIdentity, ParameterRole, StepKind, WorkflowStep
 
 
@@ -28,6 +30,14 @@ class TkAppTests(unittest.TestCase):
         rendered = format_step(unsafe)
         self.assertNotIn("https://", rendered)
         self.assertNotIn(".csv", rendered)
+
+    def test_safe_ui_call_converts_controller_error_to_fixed_message(self) -> None:
+        messages: list[UiMessage] = []
+        safe_ui_call(
+            lambda: (_ for _ in ()).throw(WorkflowError("internal detail")),
+            messages.append,
+        )
+        self.assertEqual(messages, [UiMessage.INVALID_ACTION])
 
 
 if __name__ == "__main__":

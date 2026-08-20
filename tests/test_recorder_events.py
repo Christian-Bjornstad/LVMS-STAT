@@ -82,6 +82,12 @@ class RecorderEventTests(unittest.TestCase):
         for exclusion in ("table", "treegrid", "password", "hidden", "contenteditable"):
             self.assertIn(exclusion, RECORDER_INSTALL_SCRIPT_TEMPLATE.lower())
 
+    def test_listener_marks_only_actually_edited_fields(self) -> None:
+        self.assertIn("new WeakSet", RECORDER_INSTALL_SCRIPT_TEMPLATE)
+        self.assertIn('addEventListener("input"', RECORDER_INSTALL_SCRIPT_TEMPLATE)
+        self.assertIn("edited.has(el)", RECORDER_INSTALL_SCRIPT_TEMPLATE)
+        self.assertIn("activationTypes", RECORDER_INSTALL_SCRIPT_TEMPLATE)
+
 
 if __name__ == "__main__":
     unittest.main()

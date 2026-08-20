@@ -11,6 +11,7 @@ from lvms_stat.app_controller import AppController, UiMessage, ViewModel
 from lvms_stat.config import ConfigError, load_app_config
 from lvms_stat.recording_service import RecordingService
 from lvms_stat.workflow import ParameterRole, StepKind, WorkflowStep
+from lvms_stat.workflow import WorkflowError
 from lvms_stat.workflow_store import WorkflowStore
 
 
@@ -56,6 +57,13 @@ def format_step(step: WorkflowStep) -> str:
         return f"{step.step_id}. Edit field: {label} [value not recorded]"
     verb = "Select" if step.kind is StepKind.SELECT else "Click"
     return f"{step.step_id}. {verb}: {label}"
+
+
+def safe_ui_call(action: Callable[[], None], show: Callable[[UiMessage], None]) -> None:
+    try:
+        action()
+    except (WorkflowError, ValueError):
+        show(UiMessage.INVALID_ACTION)
 
 
 class TkRecorderView:
@@ -138,32 +146,46 @@ class TkRecorderView:
 
     def _on_start(self) -> None:
         if self._controller:
-            self._controller.start(self._name.get(), self._notes.get("1.0", "end-1c"))
+            safe_ui_call(
+                lambda: self._controller.start(
+                    self._name.get(), self._notes.get("1.0", "end-1c")
+                ),
+                self.show_message,
+            )
 
     def _on_stop(self) -> None:
         if self._controller:
-            self._controller.stop()
+            safe_ui_call(self._controller.stop, self.show_message)
 
     def _on_save(self) -> None:
         if self._controller:
-            self._controller.save()
+            safe_ui_call(self._controller.save, self.show_message)
 
     def _on_open(self) -> None:
         if self._controller:
-            self._controller.open_csv()
+            safe_ui_call(self._controller.open_csv, self.show_message)
 
     def _on_assign(self) -> None:
         if not self._controller or not self._steps.curselection():
             return
-        self._controller.assign_role(self._steps.curselection()[0] + 1, ParameterRole(self._role.get()))
+        safe_ui_call(
+            lambda: self._controller.assign_role(
+                self._steps.curselection()[0] + 1, ParameterRole(self._role.get())
+            ),
+            self.show_message,
+        )
 
     def _poll_events(self) -> None:
         if self._controller:
             while True:
                 try:
-                    self._controller.handle_service_event(self._event_queue.get_nowait())
+                    event = self._event_queue.get_nowait()
                 except queue.Empty:
                     break
+                safe_ui_call(
+                    lambda event=event: self._controller.handle_service_event(event),
+                    self.show_message,
+                )
         self._root.after(100, self._poll_events)
 
     def _on_close(self) -> None:
