@@ -557,7 +557,7 @@ git commit -m "feat: coordinate supervised recording lifecycle"
 
 **Interfaces:**
 - Consumes: `RecordingService`, workflow state/model functions, and `WorkflowStore`.
-- Produces: `RecorderView` protocol and `AppController(view, service, store)` methods `start(name, notes)`, `stop()`, `handle_service_event(event)`, `assign_role(step_id, role)`, `save()`, `open_csv()`, and `close()`.
+- Produces: `RecorderView` protocol and `AppController(view, service, store, config)` methods `start(name, notes)`, `stop()`, `handle_service_event(event)`, `assign_role(step_id, role)`, `save()`, `open_csv()`, and `close()`.
 
 - [ ] **Step 1: Write failing controller tests using a fake view**
 
