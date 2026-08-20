@@ -259,7 +259,10 @@ class BrowserPage:
         safe_title = title.strip()[:120] if isinstance(title, str) else ""
         return PageIdentity(origin=expected_origin, title=safe_title)
 
-    def inspect_controls(self) -> list[dict[str, str]]:
+    def inspect_controls(self, expected_origin: str) -> list[dict[str, str]]:
+        origin = self._evaluate("location.origin", timeout_seconds=2)
+        if origin != expected_origin:
+            raise UnexpectedOriginError("Edge reached an unexpected origin")
         raw_controls = self._evaluate(CONTROL_INSPECTION_SCRIPT, timeout_seconds=10)
         try:
             return sanitize_controls(raw_controls)

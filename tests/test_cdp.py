@@ -173,11 +173,25 @@ class CdpTests(unittest.TestCase):
 
     def test_inspection_always_passes_through_sanitizer(self) -> None:
         page = BrowserPage(
-            FakeCdp([evaluated([{"tag": "BUTTON", "text": "Export", "value": "x"}])])
+            FakeCdp(
+                [
+                    evaluated("https://lvms.example.invalid"),
+                    evaluated([{"tag": "BUTTON", "text": "Export", "value": "x"}]),
+                ]
+            )
         )
 
         with self.assertRaisesRegex(CdpProtocolError, "unsafe control metadata"):
-            page.inspect_controls()
+            page.inspect_controls("https://lvms.example.invalid")
+
+    def test_inspection_rechecks_origin_before_reading_controls(self) -> None:
+        cdp = FakeCdp([evaluated("https://unexpected.invalid")])
+        page = BrowserPage(cdp)
+
+        with self.assertRaises(UnexpectedOriginError):
+            page.inspect_controls("https://lvms.example.invalid")
+
+        self.assertEqual(len(cdp.calls), 1)
 
 
 if __name__ == "__main__":
