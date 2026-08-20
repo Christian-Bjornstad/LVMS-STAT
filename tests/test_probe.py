@@ -60,12 +60,14 @@ class ProbeTests(unittest.TestCase):
         self.temp_root = Path(self.temporary_directory.name)
         self.repository_root = self.temp_root / "repository"
         self.repository_root.mkdir()
+        self.local_app_data = self.temp_root / "local-app-data"
+        self.local_app_data.mkdir()
         self.config_path = self.temp_root / "config.json"
         self.config_path.write_text(
             json.dumps(
                 {
                     "landing_url": "https://lvms.example.invalid/",
-                    "profile_directory": str(self.temp_root / "edge-profile"),
+                    "profile_directory": str(self.local_app_data / "edge-profile"),
                 }
             ),
             encoding="utf-8",
@@ -110,6 +112,7 @@ class ProbeTests(unittest.TestCase):
             dependencies=dependencies,
             output=output,
             repository_root=self.repository_root,
+            allowed_profile_root=self.local_app_data,
         )
 
         self.assertEqual(result, 0)
@@ -133,6 +136,7 @@ class ProbeTests(unittest.TestCase):
             dependencies=dependencies,
             output=output,
             repository_root=self.repository_root,
+            allowed_profile_root=self.local_app_data,
         )
 
         self.assertEqual(result, 2)
@@ -156,6 +160,7 @@ class ProbeTests(unittest.TestCase):
             output=output,
             input_func=lambda prompt: "INSPECT",
             repository_root=self.repository_root,
+            allowed_profile_root=self.local_app_data,
         )
 
         self.assertEqual(result, 0)
@@ -173,6 +178,7 @@ class ProbeTests(unittest.TestCase):
             output=io.StringIO(),
             input_func=lambda prompt: "yes",
             repository_root=self.repository_root,
+            allowed_profile_root=self.local_app_data,
         )
 
         self.assertEqual(result, 130)

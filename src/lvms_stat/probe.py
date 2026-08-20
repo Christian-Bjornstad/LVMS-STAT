@@ -63,6 +63,7 @@ def run_probe(
     output: TextIO | None = None,
     input_func: Callable[[str], str] = input,
     repository_root: Path | None = None,
+    allowed_profile_root: Path | None = None,
 ) -> int:
     active_dependencies = dependencies or _default_dependencies()
     active_output = output or sys.stdout
@@ -72,7 +73,11 @@ def run_probe(
     exit_code = 2
 
     try:
-        config = load_config(config_path, repository_root=active_repository)
+        config = load_config(
+            config_path,
+            repository_root=active_repository,
+            allowed_profile_root=allowed_profile_root,
+        )
         edge = active_dependencies.edge_start(config.profile_directory)
         target = active_dependencies.target_wait(edge.port)
         connection = active_dependencies.connection_open(target)

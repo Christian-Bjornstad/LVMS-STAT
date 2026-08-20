@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,6 +30,7 @@ def validate_config(
     raw: Mapping[str, object],
     *,
     repository_root: Path,
+    allowed_profile_root: Path | None = None,
 ) -> ProbeConfig:
     landing_url = _required_text(raw, "landing_url")
     parsed = urlsplit(landing_url)
@@ -58,6 +60,20 @@ def validate_config(
     ):
         raise ConfigError("profile_directory must be outside the repository")
 
+    if allowed_profile_root is None:
+        local_app_data = os.environ.get("LOCALAPPDATA")
+        if not local_app_data:
+            raise ConfigError("local application-data directory is unavailable")
+        allowed_profile_root = Path(local_app_data)
+    resolved_profile_root = allowed_profile_root.expanduser().resolve()
+    if (
+        profile_directory == resolved_profile_root
+        or resolved_profile_root not in profile_directory.parents
+    ):
+        raise ConfigError(
+            "profile_directory must be beneath the local application-data directory"
+        )
+
     host_and_port = hostname if port is None else f"{hostname}:{port}"
     return ProbeConfig(
         landing_url=landing_url,
@@ -66,7 +82,12 @@ def validate_config(
     )
 
 
-def load_config(path: Path, *, repository_root: Path) -> ProbeConfig:
+def load_config(
+    path: Path,
+    *,
+    repository_root: Path,
+    allowed_profile_root: Path | None = None,
+) -> ProbeConfig:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
     except OSError as exc:
@@ -76,4 +97,8 @@ def load_config(path: Path, *, repository_root: Path) -> ProbeConfig:
 
     if not isinstance(raw, dict):
         raise ConfigError("configuration must contain a JSON object")
-    return validate_config(raw, repository_root=repository_root)
+    return validate_config(
+        raw,
+        repository_root=repository_root,
+        allowed_profile_root=allowed_profile_root,
+    )

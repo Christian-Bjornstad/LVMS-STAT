@@ -25,6 +25,7 @@ class ConfigTests(unittest.TestCase):
                 "profile_directory": str(profile_directory),
             },
             repository_root=self.repo_root,
+            allowed_profile_root=self.temp_root,
         )
 
         self.assertEqual(config.landing_url, "https://lvms.example.invalid/clims/")
@@ -48,6 +49,7 @@ class ConfigTests(unittest.TestCase):
                             "profile_directory": str(self.temp_root / "profile"),
                         },
                         repository_root=self.repo_root,
+                        allowed_profile_root=self.temp_root,
                     )
 
     def test_rejects_profile_inside_repository(self) -> None:
@@ -58,6 +60,21 @@ class ConfigTests(unittest.TestCase):
                     "profile_directory": str(self.repo_root / "edge-profile"),
                 },
                 repository_root=self.repo_root,
+                allowed_profile_root=self.temp_root,
+            )
+
+    def test_rejects_profile_outside_local_application_data(self) -> None:
+        allowed_profile_root = self.temp_root / "local-app-data"
+        allowed_profile_root.mkdir()
+
+        with self.assertRaisesRegex(ConfigError, "local application-data"):
+            validate_config(
+                {
+                    "landing_url": "https://lvms.example.invalid/",
+                    "profile_directory": str(self.temp_root / "shared-profile"),
+                },
+                repository_root=self.repo_root,
+                allowed_profile_root=allowed_profile_root,
             )
 
     def test_load_config_rejects_non_object_json(self) -> None:
@@ -65,7 +82,11 @@ class ConfigTests(unittest.TestCase):
         config_path.write_text(json.dumps(["not", "an", "object"]), encoding="utf-8")
 
         with self.assertRaisesRegex(ConfigError, "JSON object"):
-            load_config(config_path, repository_root=self.repo_root)
+            load_config(
+                config_path,
+                repository_root=self.repo_root,
+                allowed_profile_root=self.temp_root,
+            )
 
 
 if __name__ == "__main__":
