@@ -230,6 +230,8 @@ class BrowserPage:
         expected_origin: str,
         *,
         timeout_seconds: float = 30,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> PageIdentity:
         self._connection.call("Page.enable", timeout_seconds=timeout_seconds)
         self._connection.call("Runtime.enable", timeout_seconds=timeout_seconds)
@@ -241,20 +243,21 @@ class BrowserPage:
         if navigation.get("errorText"):
             raise CdpProtocolError("Edge navigation failed")
 
-        deadline = time.monotonic() + timeout_seconds
-        while time.monotonic() < deadline:
+        deadline = clock() + timeout_seconds
+        last_origin: object = None
+        while clock() < deadline:
             state = self._evaluate(
                 "document.readyState", timeout_seconds=min(2, timeout_seconds)
             )
-            if state in {"interactive", "complete"}:
+            last_origin = self._evaluate("location.origin", timeout_seconds=2)
+            if state in {"interactive", "complete"} and last_origin == expected_origin:
                 break
-            time.sleep(0.1)
+            sleep(0.1)
         else:
+            if last_origin != expected_origin:
+                raise UnexpectedOriginError("Edge reached an unexpected origin")
             raise CdpTimeout("Edge navigation timed out")
 
-        origin = self._evaluate("location.origin", timeout_seconds=2)
-        if origin != expected_origin:
-            raise UnexpectedOriginError("Edge reached an unexpected origin")
         title = self._evaluate("document.title", timeout_seconds=2)
         safe_title = title.strip()[:120] if isinstance(title, str) else ""
         return PageIdentity(origin=expected_origin, title=safe_title)

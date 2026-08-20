@@ -145,10 +145,38 @@ class CdpTests(unittest.TestCase):
             "https://lvms.example.invalid/",
             "https://lvms.example.invalid",
             timeout_seconds=1,
+            clock=lambda: 0,
+            sleep=lambda seconds: None,
         )
 
         self.assertEqual(identity.origin, "https://lvms.example.invalid")
         self.assertEqual(identity.title, "L" * 120)
+
+    def test_navigation_allows_transient_sso_origin(self) -> None:
+        cdp = FakeCdp(
+            [
+                {},
+                {},
+                {},
+                evaluated("complete"),
+                evaluated("https://sso.example.invalid"),
+                evaluated("complete"),
+                evaluated("https://lvms.example.invalid"),
+                evaluated("LVMS"),
+            ]
+        )
+        ticks = iter((0.0, 0.0, 0.1))
+        page = BrowserPage(cdp)
+
+        identity = page.navigate(
+            "https://lvms.example.invalid/",
+            "https://lvms.example.invalid",
+            timeout_seconds=1,
+            clock=lambda: next(ticks),
+            sleep=lambda seconds: None,
+        )
+
+        self.assertEqual(identity, PageIdentity("https://lvms.example.invalid", "LVMS"))
 
     def test_rejects_unexpected_origin_without_returning_full_url(self) -> None:
         cdp = FakeCdp(
@@ -160,6 +188,7 @@ class CdpTests(unittest.TestCase):
                 evaluated("https://unexpected.invalid"),
             ]
         )
+        ticks = iter((0.0, 0.0, 1.0))
         page = BrowserPage(cdp)
 
         with self.assertRaises(UnexpectedOriginError) as caught:
@@ -167,6 +196,8 @@ class CdpTests(unittest.TestCase):
                 "https://lvms.example.invalid/",
                 "https://lvms.example.invalid",
                 timeout_seconds=1,
+                clock=lambda: next(ticks),
+                sleep=lambda seconds: None,
             )
 
         self.assertEqual(str(caught.exception), "Edge reached an unexpected origin")
