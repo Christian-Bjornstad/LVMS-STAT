@@ -1,0 +1,24 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Local configuration and authenticated Edge state must never be committed.
+config.json
+*.local.json
+.env
+.env.*
+edge-profile/
+downloads/
+raw-reports/
+processed-reports/
+*.csv
+*.xlsx
+*.xls
+*.har
