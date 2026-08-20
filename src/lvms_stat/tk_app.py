@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from lvms_stat.app_controller import AppController, UiMessage, ViewModel
-from lvms_stat.config import ConfigError, load_app_config
+from lvms_stat.config import load_app_config
 from lvms_stat.recording_service import RecordingService
 from lvms_stat.workflow import ParameterRole, StepKind, WorkflowStep
 from lvms_stat.workflow import WorkflowError
@@ -208,6 +208,6 @@ def run_app(config_path: Path) -> int:
         view.bind_controller(controller)
         root.mainloop()
         return 0
-    except (ConfigError, TkUnavailable, Exception):
+    except Exception:
         print("LVMS-STAT app is unavailable in this Python installation.", file=sys.stderr)
         return 2
