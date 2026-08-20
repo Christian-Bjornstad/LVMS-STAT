@@ -224,6 +224,17 @@ class CdpTests(unittest.TestCase):
 
         self.assertEqual(len(cdp.calls), 1)
 
+    def test_exposes_only_bounded_safe_evaluation_and_origin(self) -> None:
+        cdp = FakeCdp([evaluated({"safe": True}), evaluated("https://lvms.example.invalid")])
+        page = BrowserPage(cdp)
+        self.assertEqual(page.evaluate_safe("({safe: true})"), {"safe": True})
+        self.assertEqual(page.current_origin(), "https://lvms.example.invalid")
+
+    def test_current_origin_rejects_non_string(self) -> None:
+        page = BrowserPage(FakeCdp([evaluated({"origin": "unsafe"})]))
+        with self.assertRaisesRegex(CdpProtocolError, "invalid origin"):
+            page.current_origin()
+
 
 if __name__ == "__main__":
     unittest.main()

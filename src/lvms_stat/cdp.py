@@ -224,6 +224,15 @@ class BrowserPage:
             raise CdpProtocolError("Edge returned an invalid evaluation result")
         return remote_object["value"]
 
+    def evaluate_safe(self, expression: str, *, timeout_seconds: float = 2) -> object:
+        return self._evaluate(expression, timeout_seconds=timeout_seconds)
+
+    def current_origin(self) -> str:
+        origin = self._evaluate("location.origin", timeout_seconds=2)
+        if not isinstance(origin, str):
+            raise CdpProtocolError("Edge returned an invalid origin")
+        return origin
+
     def navigate(
         self,
         landing_url: str,
