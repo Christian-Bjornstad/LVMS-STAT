@@ -19,6 +19,8 @@ edge-profile/
 downloads/
 raw-reports/
 processed-reports/
+workflows/
+*.workflow.json
 *.csv
 *.xlsx
 *.xls

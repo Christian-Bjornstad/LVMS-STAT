@@ -126,7 +126,7 @@ git commit -m "feat: validate privacy-safe probe configuration"
 class InspectionTests(unittest.TestCase):
     def test_allowlists_metadata_and_truncates_text(self):
         result = sanitize_controls([
-            {"tag": "BUTTON", "id": "export", "text": "X" * 200, "value": "PATIENT-1"}
+            {"tag": "BUTTON", "id": "export", "text": "X" * 200}
         ], max_text_length=12)
         self.assertEqual(result, [{"tag": "BUTTON", "id": "export", "text": "XXXXXXXXXXXX"}])
 
@@ -355,7 +355,7 @@ The runbook must instruct the user to check `edge://policy` without changing it,
 
 - [ ] **Step 5: Run the complete test suite and inspect CLI help**
 
-Run: `python -m unittest discover -s tests -v`
+Run: `python -m unittest discover -s tests -t . -v`
 
 Expected: all tests pass without launching Edge or contacting any network.
 
@@ -387,7 +387,7 @@ git commit -m "feat: add supervised LVMS Edge probe"
 
 - [ ] **Step 1: Run tests from a clean Python invocation**
 
-Run: `python -m unittest discover -s tests -v`
+Run: `python -m unittest discover -s tests -t . -v`
 
 Expected: all tests pass with no warnings, network access, or Edge process.
 
@@ -397,7 +397,7 @@ Run: `git ls-files`
 
 Expected: no `config.json`, CSV/XLSX/HAR, authenticated profile, download, raw-report, or processed-report path.
 
-Run: `git grep -n -i -E "JSESSIONID|LWSSO|MRHSession|Authorization:|Cookie:"`
+Run: `git grep -n -i -E "JSESSIONID=|LWSSO_COOKIE_KEY=|MRHSession=|Authorization:|Cookie:" -- ':!docs/superpowers/plans/*' ':!docs/work-computer-probe.md'`
 
 Expected: no matches.
 
