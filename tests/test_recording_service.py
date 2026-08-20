@@ -17,12 +17,15 @@ from lvms_stat.workflow import ControlIdentity, StepKind, WorkflowStep
 
 
 class Closable:
-    def __init__(self) -> None:
+    def __init__(self, *, fail_close: bool = False) -> None:
         self.port = 49152
         self.closed = False
+        self.fail_close = fail_close
 
     def close(self) -> None:
         self.closed = True
+        if self.fail_close:
+            raise RuntimeError("sensitive cleanup detail")
 
 
 class FakePage:
@@ -110,6 +113,24 @@ class RecordingServiceTests(unittest.TestCase):
         self.assertNotIn("sensitive detail", repr(events[-1]))
         with self.assertRaises(RuntimeError):
             service.start(self.config)
+
+    def test_cleanup_failure_does_not_escape_worker(self) -> None:
+        edge, connection = Closable(fail_close=True), Closable(fail_close=True)
+        dependencies = RecordingDependencies(
+            edge_start=lambda profile: edge,
+            target_wait=lambda port: object(),
+            connection_open=lambda target: connection,
+            page_factory=lambda active: FakePage(),
+            recorder_factory=lambda page, origin: FakeRecorder(),
+            detector_factory=lambda path: FakeDetector(),
+            worker_submit=lambda work: work(),
+            sleeper=lambda seconds: None,
+        )
+        service = RecordingService(dependencies)
+        service.start(self.config)
+        events = list(service.events().queue)
+        self.assertEqual(events[-1].kind, ServiceEventKind.FAILED)
+        self.assertEqual(events[-1].failure, FailureKind.INTERNAL)
 
 
 if __name__ == "__main__":

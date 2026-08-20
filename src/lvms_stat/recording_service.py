@@ -129,10 +129,19 @@ class RecordingService:
         except Exception:
             self._emit(ServiceEventKind.FAILED, failure=FailureKind.INTERNAL)
         finally:
+            cleanup_failed = False
             if connection is not None:
-                connection.close()
+                try:
+                    connection.close()
+                except Exception:
+                    cleanup_failed = True
             if edge is not None:
-                edge.close()
+                try:
+                    edge.close()
+                except Exception:
+                    cleanup_failed = True
+            if cleanup_failed:
+                self._emit(ServiceEventKind.FAILED, failure=FailureKind.INTERNAL)
 
     def _wait_after_stop(self) -> None:
         deadline = self._deps.clock() + 10
