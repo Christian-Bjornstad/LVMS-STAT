@@ -8,6 +8,7 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+.worktrees/
 
 # Local configuration and authenticated Edge state must never be committed.
 config.json
