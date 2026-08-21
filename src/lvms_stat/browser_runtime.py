@@ -5,6 +5,10 @@ from typing import Any
 from lvms_stat.config import AppConfig
 
 
+class BrowserCleanupError(RuntimeError):
+    """Owned browser startup failed and cleanup did not complete."""
+
+
 def close_owned(connection: Any | None, edge: Any | None) -> bool:
     failed = False
     for resource in (connection, edge):
@@ -25,6 +29,9 @@ def open_page(config: AppConfig, dependencies: Any) -> tuple[Any, Any, Any]:
         page = dependencies.page_factory(connection)
         page.navigate(config.landing_url, config.expected_origin, timeout_seconds=120)
         return opened.edge, connection, page
-    except Exception:
-        close_owned(connection, opened.edge)
+    except Exception as exc:
+        if close_owned(connection, opened.edge):
+            raise BrowserCleanupError(
+                "owned browser cleanup did not complete"
+            ) from exc
         raise

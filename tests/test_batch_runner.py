@@ -99,7 +99,7 @@ class BatchHarness:
         class Connection:
             def close(self) -> None:
                 harness.events.append("close_connection")
-                if harness.failure_stage == "cleanup":
+                if harness.failure_stage in {"cleanup", "open_cleanup"}:
                     raise RuntimeError("synthetic cleanup failure")
 
         class Page:
@@ -108,6 +108,8 @@ class BatchHarness:
             ) -> object:
                 del url, origin, timeout_seconds
                 harness.events.append("navigate")
+                if harness.failure_stage == "open_cleanup":
+                    raise RuntimeError("synthetic navigation failure")
                 return object()
 
             def configure_downloads(self, directory: Path) -> None:
@@ -300,6 +302,16 @@ class BatchRunnerTests(unittest.TestCase):
                 )
                 self.assertEqual(result, 2)
                 self.assertEqual(harness.browser_open_count, 0)
+
+    def test_open_failure_reports_cleanup_incomplete_without_internal_detail(self) -> None:
+        harness = BatchHarness("open_cleanup")
+
+        result, output = self.run_harness(harness)
+
+        self.assertEqual(result, 2)
+        self.assertIn("cleanup", output.lower())
+        self.assertNotIn("synthetic", output.lower())
+        self.assertEqual(harness.events, ["navigate", "close_connection", "close_edge"])
 
 
 if __name__ == "__main__":

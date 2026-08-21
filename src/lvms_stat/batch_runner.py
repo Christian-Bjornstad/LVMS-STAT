@@ -13,7 +13,7 @@ from lvms_stat.batch_navigation import (
     DefinedReportsPage,
     discover_defined_reports_page,
 )
-from lvms_stat.browser_runtime import close_owned, open_page
+from lvms_stat.browser_runtime import BrowserCleanupError, close_owned, open_page
 from lvms_stat.browser_session import open_owned_browser
 from lvms_stat.cdp import BrowserPage, CdpConnection
 from lvms_stat.config import AppConfig, load_app_config
@@ -172,6 +172,9 @@ def run_report_batch(
             active.finalizer(source, config.download_directory, filename)
             stream.write(f"Batch job completed: {job.job_key} -> {filename}\n")
         result = 0
+    except BrowserCleanupError:
+        stream.write("Batch cleanup did not complete.\n")
+        result = 2
     except KeyboardInterrupt:
         stream.write("Batch cancelled.\n")
         result = 130
