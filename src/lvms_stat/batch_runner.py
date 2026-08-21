@@ -124,6 +124,7 @@ def run_report_batch(
     output: TextIO | None = None,
     repository_root: Path | None = None,
     timeout_seconds: float = 600,
+    progress: Callable[[int, int], None] | None = None,
 ) -> int:
     active = dependencies or _default_dependencies()
     stream = output or sys.stdout
@@ -156,8 +157,12 @@ def run_report_batch(
             active.sleeper,
         )
 
-        for job, filename in zip(jobs, filenames, strict=True):
+        for index, (job, filename) in enumerate(
+            zip(jobs, filenames, strict=True), start=1
+        ):
             current_job = job.job_key
+            if progress is not None:
+                progress(index, len(jobs))
             contract = _wait_for_page(page, config.expected_origin, active)
             actions.activate(contract.clear)
             form.wait_until_clear()

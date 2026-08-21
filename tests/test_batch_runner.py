@@ -251,6 +251,23 @@ class BatchRunnerTests(unittest.TestCase):
         self.assertNotIn("ANALYSIS-ORDERED", output)
         self.assertNotIn(str(harness.config.download_directory), output)
 
+    def test_reports_numeric_progress_without_job_or_report_details(self) -> None:
+        harness = BatchHarness()
+        self.addCleanup(harness.cleanup)
+        progress: list[tuple[int, int]] = []
+
+        result = run_report_batch(
+            Path("config.json"),
+            Path("jobs.json"),
+            JOB_KEYS,
+            dependencies=harness.dependencies(),
+            output=io.StringIO(),
+            progress=lambda current, total: progress.append((current, total)),
+        )
+
+        self.assertEqual(result, 0)
+        self.assertEqual(progress, [(1, 3), (2, 3), (3, 3)])
+
     def test_stops_on_first_job_failure_without_export_retry(self) -> None:
         for stage in (
             "clear",

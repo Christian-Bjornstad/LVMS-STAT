@@ -7,7 +7,7 @@ from pathlib import Path
 from lvms_stat.batch_runner import run_report_batch
 from lvms_stat.probe import run_doctor, run_probe
 from lvms_stat.report_runner import discover_report, run_report_job
-from lvms_stat.tk_app import run_app
+from lvms_stat.qt_app import run_app
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -21,7 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
         ("doctor", "Return one fixed managed Edge and LVMS capability result."),
         ("probe", "Open Edge and verify only the configured LVMS origin."),
         ("inspect", "After confirmation, list sanitized fixed page controls."),
-        ("app", "Open the supervised safe workflow recorder window."),
+        ("app", "Open the one-click PyQt6 three-report window."),
     ):
         command_parser = subcommands.add_parser(command, help=help_text)
         command_parser.add_argument(
