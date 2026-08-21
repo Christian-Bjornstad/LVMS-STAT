@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TextIO
 
+from lvms_stat.browser_runtime import close_owned as _close_owned
+from lvms_stat.browser_runtime import open_page as _open_page
 from lvms_stat.browser_session import open_owned_browser
 from lvms_stat.cdp import CdpConnection, BrowserPage
 from lvms_stat.config import AppConfig, load_app_config
@@ -53,31 +55,6 @@ def _default_dependencies() -> RunnerDependencies:
         clock=time.monotonic,
         sleeper=time.sleep,
     )
-
-
-def _close_owned(connection: Any | None, edge: Any | None) -> bool:
-    failed = False
-    for resource in (connection, edge):
-        if resource is None:
-            continue
-        try:
-            resource.close()
-        except Exception:
-            failed = True
-    return failed
-
-
-def _open_page(config: AppConfig, dependencies: RunnerDependencies) -> tuple[Any, Any, Any]:
-    opened = dependencies.browser_open(config.profile_directory)
-    connection: Any | None = None
-    try:
-        connection = dependencies.connection_open(opened.target)
-        page = dependencies.page_factory(connection)
-        page.navigate(config.landing_url, config.expected_origin, timeout_seconds=120)
-        return opened.edge, connection, page
-    except Exception:
-        _close_owned(connection, opened.edge)
-        raise
 
 
 def discover_report(
