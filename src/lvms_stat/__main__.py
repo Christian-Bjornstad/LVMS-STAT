@@ -4,7 +4,7 @@ import argparse
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
-from lvms_stat.probe import run_probe
+from lvms_stat.probe import run_doctor, run_probe
 from lvms_stat.report_runner import discover_report, run_report_job
 from lvms_stat.tk_app import run_app
 
@@ -17,6 +17,7 @@ def build_parser() -> argparse.ArgumentParser:
     subcommands = parser.add_subparsers(dest="command", required=True)
 
     for command, help_text in (
+        ("doctor", "Return one fixed managed Edge and LVMS capability result."),
         ("probe", "Open Edge and verify only the configured LVMS origin."),
         ("inspect", "After confirmation, list sanitized fixed page controls."),
         ("app", "Open the supervised safe workflow recorder window."),
@@ -49,11 +50,14 @@ def main(
     argv: Sequence[str] | None = None,
     *,
     probe_runner: Callable[..., int] = run_probe,
+    doctor_runner: Callable[[Path], int] = run_doctor,
     app_runner: Callable[[Path], int] = run_app,
     discover_runner: Callable[[Path], int] = discover_report,
     report_runner: Callable[[Path, Path, Path, str], int] = run_report_job,
 ) -> int:
     arguments = build_parser().parse_args(argv)
+    if arguments.command == "doctor":
+        return doctor_runner(arguments.config)
     if arguments.command == "app":
         return app_runner(arguments.config)
     if arguments.command == "discover-report":

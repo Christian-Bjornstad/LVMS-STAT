@@ -12,6 +12,7 @@ from lvms_stat.probe import (
     CapabilityResult,
     ProbeDependencies,
     classify_probe_error,
+    run_doctor,
     run_probe,
 )
 from lvms_stat.cdp import wait_for_page_target
@@ -130,6 +131,25 @@ class ProbeTests(unittest.TestCase):
             output.getvalue(),
             "Connected: https://lvms.example.invalid — LVMS\n",
         )
+        self.assertTrue(edge.closed)
+        self.assertTrue(connection.closed)
+
+    def test_doctor_reports_only_fixed_capability_result(self) -> None:
+        page = FakePage(PageIdentity("https://lvms.example.invalid", "LVMS"))
+        dependencies, edge, connection = self.dependencies(page=page)
+        output = io.StringIO()
+
+        result = run_doctor(
+            self.config_path,
+            dependencies=dependencies,
+            output=output,
+            repository_root=self.repository_root,
+            allowed_profile_root=self.local_app_data,
+        )
+
+        self.assertEqual(result, 0)
+        self.assertEqual(output.getvalue(), "LVMS CDP capability: ready.\n")
+        self.assertNotIn("example.invalid", output.getvalue())
         self.assertTrue(edge.closed)
         self.assertTrue(connection.closed)
 

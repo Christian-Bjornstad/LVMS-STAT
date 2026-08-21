@@ -12,11 +12,15 @@ build/
 
 # Local configuration and authenticated Edge state must never be committed.
 config.json
+jobs.json
 *.local.json
 .env
 .env.*
 edge-profile/
+browser_profiles/
 downloads/
+contracts/
+data/
 raw-reports/
 processed-reports/
 workflows/
@@ -25,3 +29,4 @@ workflows/
 *.xlsx
 *.xls
 *.har
+*.crdownload

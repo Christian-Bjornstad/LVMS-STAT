@@ -1,0 +1,14 @@
+{
+  "jobs": [
+    {
+      "job_key": "synthetic_ordered",
+      "report_type": "TYPE_A",
+      "category": "CATEGORY_A",
+      "report_id": "REPORT-A",
+      "analysis_codes": ["ANALYSIS-A", "ANALYSIS-B"],
+      "created_from": "01.01.2026",
+      "created_to": "21.08.2026",
+      "output_stem": "synthetic_ordered"
+    }
+  ]
+}

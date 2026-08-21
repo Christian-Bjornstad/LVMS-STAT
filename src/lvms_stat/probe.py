@@ -166,3 +166,55 @@ def run_probe(
             exit_code = 2
 
     return exit_code
+
+
+def run_doctor(
+    config_path: Path,
+    *,
+    dependencies: ProbeDependencies | None = None,
+    output: TextIO | None = None,
+    repository_root: Path | None = None,
+    allowed_profile_root: Path | None = None,
+) -> int:
+    """Return one fixed capability result without exposing origin or page title."""
+    active_dependencies = dependencies or _default_dependencies()
+    active_output = output or sys.stdout
+    active_repository = repository_root or Path(__file__).resolve().parents[2]
+    edge: Any | None = None
+    connection: Any | None = None
+    error: Exception | None = None
+    try:
+        config = load_config(
+            config_path,
+            repository_root=active_repository,
+            allowed_profile_root=allowed_profile_root,
+        )
+        edge = active_dependencies.edge_start(config.profile_directory)
+        target = active_dependencies.target_wait(edge.port)
+        connection = active_dependencies.connection_open(target)
+        page = active_dependencies.page_factory(connection)
+        page.navigate(config.landing_url, config.expected_origin, timeout_seconds=120)
+    except KeyboardInterrupt:
+        active_output.write("LVMS CDP capability: cancelled.\n")
+        return 130
+    except Exception as exc:
+        error = exc
+    finally:
+        cleanup_failed = False
+        for resource in (connection, edge):
+            if resource is None:
+                continue
+            try:
+                resource.close()
+            except Exception:
+                cleanup_failed = True
+        if cleanup_failed:
+            error = RuntimeError("cleanup")
+
+    result = (
+        CapabilityResult(CapabilityCode.CLEANUP_INCOMPLETE, False)
+        if isinstance(error, RuntimeError) and str(error) == "cleanup"
+        else classify_probe_error(error)
+    )
+    active_output.write(result.user_message + "\n")
+    return 0 if result.ok else 2
