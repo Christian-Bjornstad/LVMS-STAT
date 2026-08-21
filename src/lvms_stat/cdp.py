@@ -449,7 +449,7 @@ class BrowserPage:
     def focus_control(self, token: str) -> None:
         if self._use_control(
             token,
-            'control.focus(); return document.activeElement === control ? "ok" : "focus-failed";',
+            'control.focus(); return control.ownerDocument.activeElement === control ? "ok" : "focus-failed";',
         ) != "ok":
             raise CdpProtocolError("report control is no longer available")
 
@@ -463,7 +463,7 @@ class BrowserPage:
         result = self._use_control(
             token,
             rf'''
-if (!(control instanceof HTMLSelectElement)) return "custom";
+if (control.tagName !== "SELECT") return "custom";
 const matches = Array.from(control.options).filter(
   (option) => String(option.textContent || "").trim() === {text_json}
 );

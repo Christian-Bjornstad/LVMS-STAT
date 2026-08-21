@@ -369,14 +369,26 @@ class CdpTests(unittest.TestCase):
         self.assertIn('wanted.frame === "top"', expression)
         self.assertIn("try", expression)
 
-    def test_focus_requires_control_to_become_active_element(self) -> None:
+    def test_focus_requires_control_to_become_active_in_its_own_document(self) -> None:
         cdp = FakeCdp([evaluated("focus-failed")])
 
         with self.assertRaisesRegex(CdpProtocolError, "no longer available"):
             BrowserPage(cdp).focus_control("a" * 32)
 
         expression = cdp.calls[0][1]["expression"]  # type: ignore[index]
-        self.assertIn("document.activeElement", expression)
+        self.assertIn("control.ownerDocument.activeElement", expression)
+
+    def test_native_select_detection_is_safe_across_frame_realms(self) -> None:
+        cdp = FakeCdp([evaluated("selected")])
+
+        selected = BrowserPage(cdp).choose_native_option(
+            "a" * 32, "CATEGORY_A"
+        )
+
+        self.assertTrue(selected)
+        expression = cdp.calls[0][1]["expression"]  # type: ignore[index]
+        self.assertIn('control.tagName !== "SELECT"', expression)
+        self.assertNotIn("instanceof HTMLSelectElement", expression)
 
     def test_connection_close_surfaces_sanitized_failure(self) -> None:
         class BrokenCloseSocket(FakeSocket):
