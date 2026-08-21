@@ -61,6 +61,19 @@ class DownloadTests(unittest.TestCase):
                     open_local(path, opener=lambda value: None)
                 self.assertNotIn(str(path), str(caught.exception))
 
+    def test_waits_while_temporary_download_exists(self) -> None:
+        detector = CsvArrivalDetector(self.root)
+        detector.start()
+        temporary = self.root / "report.csv.crdownload"
+        completed = self.root / "report.csv"
+        temporary.write_bytes(b"partial")
+        completed.write_bytes(b"partial")
+
+        self.assertEqual(detector.poll(), DownloadStatus.WAITING)
+        temporary.unlink()
+        self.assertEqual(detector.poll(), DownloadStatus.WAITING)
+        self.assertEqual(detector.poll(), DownloadStatus.DETECTED)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -5,6 +5,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlsplit
 
@@ -249,6 +250,20 @@ class BrowserPage:
         if not isinstance(origin, str):
             raise CdpProtocolError("Edge returned an invalid origin")
         return origin
+
+    def configure_downloads(self, directory: Path) -> None:
+        if not directory.is_absolute():
+            raise CdpProtocolError("download directory must be absolute")
+        resolved = directory.resolve()
+        try:
+            resolved.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            raise CdpProtocolError("download directory is unavailable") from exc
+        self._connection.call(
+            "Browser.setDownloadBehavior",
+            {"behavior": "allow", "downloadPath": str(resolved)},
+            timeout_seconds=5,
+        )
 
     def navigate(
         self,

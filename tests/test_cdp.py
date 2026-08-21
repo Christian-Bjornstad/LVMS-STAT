@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
 from io import BytesIO
+from pathlib import Path
 
 from lvms_stat.cdp import (
     BrowserPage,
@@ -234,6 +236,27 @@ class CdpTests(unittest.TestCase):
         page = BrowserPage(FakeCdp([evaluated({"origin": "unsafe"})]))
         with self.assertRaisesRegex(CdpProtocolError, "invalid origin"):
             page.current_origin()
+
+    def test_configures_absolute_owned_download_directory(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            directory = Path(temporary_directory).resolve() / "inbox"
+            cdp = FakeCdp([{}])
+            page = BrowserPage(cdp)
+
+            page.configure_downloads(directory)
+
+            self.assertTrue(directory.is_dir())
+            self.assertEqual(
+                cdp.calls[-1],
+                (
+                    "Browser.setDownloadBehavior",
+                    {"behavior": "allow", "downloadPath": str(directory)},
+                ),
+            )
+
+    def test_rejects_relative_download_directory(self) -> None:
+        with self.assertRaisesRegex(CdpProtocolError, "absolute"):
+            BrowserPage(FakeCdp([])).configure_downloads(Path("relative"))
 
 
 if __name__ == "__main__":

@@ -35,6 +35,7 @@ class CsvArrivalDetector:
             raise DownloadError("download directory must be absolute")
         self._directory = directory.resolve()
         self._baseline: dict[Path, FileStamp] = {}
+        self._temporary_baseline: set[Path] = set()
         self._pending: tuple[Path, FileStamp] | None = None
         self._detected: Path | None = None
         self._started = False
@@ -49,8 +50,20 @@ class CsvArrivalDetector:
         except OSError as exc:
             raise DownloadError("download directory is unavailable") from exc
 
+    def _scan_temporary(self) -> set[Path]:
+        try:
+            return {
+                item.resolve()
+                for item in self._directory.iterdir()
+                if item.is_file()
+                and item.name.lower().endswith((".crdownload", ".tmp", ".partial"))
+            }
+        except OSError as exc:
+            raise DownloadError("download directory is unavailable") from exc
+
     def start(self) -> None:
         self._baseline = self._scan()
+        self._temporary_baseline = self._scan_temporary()
         self._pending = None
         self._detected = None
         self._started = True
@@ -64,6 +77,9 @@ class CsvArrivalDetector:
                 if self._detected.is_file()
                 else DownloadStatus.MISSING
             )
+        if self._scan_temporary() - self._temporary_baseline:
+            self._pending = None
+            return DownloadStatus.WAITING
         current = self._scan()
         new_files = {path: stamp for path, stamp in current.items() if path not in self._baseline}
         if len(new_files) > 1:
