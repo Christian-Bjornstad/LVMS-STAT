@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 import sys
-import time
 from collections.abc import Callable
 from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -15,7 +15,7 @@ from lvms_stat.cdp import (
     CdpTimeout,
     PageTarget,
     UnexpectedOriginError,
-    discover_page,
+    wait_for_page_target,
 )
 from lvms_stat.config import ConfigError, load_config
 from lvms_stat.edge import EdgeLaunchError, EdgeProcess
@@ -29,27 +29,54 @@ class ProbeDependencies:
     page_factory: Callable[[Any], Any]
 
 
-def _wait_for_target(
-    port: int,
-    *,
-    timeout_seconds: float = 20,
-    discover: Callable[[int], PageTarget] = discover_page,
-    clock: Callable[[], float] = time.monotonic,
-    sleep: Callable[[float], None] = time.sleep,
-) -> PageTarget:
-    deadline = clock() + timeout_seconds
-    while clock() < deadline:
-        try:
-            return discover(port)
-        except CdpTimeout:
-            sleep(0.2)
-    raise CdpTimeout("Edge connection timed out")
+class CapabilityCode(StrEnum):
+    READY = "ready"
+    CONFIG_INVALID = "config_invalid"
+    EDGE_UNAVAILABLE = "edge_unavailable"
+    CDP_UNAVAILABLE = "cdp_unavailable"
+    UNEXPECTED_ORIGIN = "unexpected_origin"
+    PROTOCOL_INVALID = "protocol_invalid"
+    CLEANUP_INCOMPLETE = "cleanup_incomplete"
+
+
+@dataclass(frozen=True)
+class CapabilityResult:
+    code: CapabilityCode
+    ok: bool
+
+    @property
+    def user_message(self) -> str:
+        return {
+            CapabilityCode.READY: "LVMS CDP capability: ready.",
+            CapabilityCode.CONFIG_INVALID: "LVMS CDP capability: local configuration is invalid.",
+            CapabilityCode.EDGE_UNAVAILABLE: "LVMS CDP capability: managed Edge is unavailable.",
+            CapabilityCode.CDP_UNAVAILABLE: "LVMS CDP capability: local CDP is unavailable.",
+            CapabilityCode.UNEXPECTED_ORIGIN: "LVMS CDP capability: the expected origin was not reached.",
+            CapabilityCode.PROTOCOL_INVALID: "LVMS CDP capability: Edge returned an invalid response.",
+            CapabilityCode.CLEANUP_INCOMPLETE: "LVMS CDP capability: cleanup did not complete.",
+        }[self.code]
+
+
+def classify_probe_error(error: Exception | None) -> CapabilityResult:
+    if error is None:
+        return CapabilityResult(CapabilityCode.READY, True)
+    if isinstance(error, ConfigError):
+        code = CapabilityCode.CONFIG_INVALID
+    elif isinstance(error, EdgeLaunchError):
+        code = CapabilityCode.EDGE_UNAVAILABLE
+    elif isinstance(error, CdpTimeout):
+        code = CapabilityCode.CDP_UNAVAILABLE
+    elif isinstance(error, UnexpectedOriginError):
+        code = CapabilityCode.UNEXPECTED_ORIGIN
+    else:
+        code = CapabilityCode.PROTOCOL_INVALID
+    return CapabilityResult(code, False)
 
 
 def _default_dependencies() -> ProbeDependencies:
     return ProbeDependencies(
         edge_start=EdgeProcess.start,
-        target_wait=_wait_for_target,
+        target_wait=wait_for_page_target,
         connection_open=CdpConnection.open,
         page_factory=BrowserPage,
     )

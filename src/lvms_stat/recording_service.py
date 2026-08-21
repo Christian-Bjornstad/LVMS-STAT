@@ -17,7 +17,7 @@ from lvms_stat.downloads import (
     open_local,
 )
 from lvms_stat.edge import EdgeLaunchError, EdgeProcess
-from lvms_stat.probe import _wait_for_target
+from lvms_stat.cdp import wait_for_page_target
 from lvms_stat.recorder import RecorderSession, RecorderUnavailable
 from lvms_stat.workflow import WorkflowStep
 
@@ -55,7 +55,7 @@ def _submit_thread(work: Callable[[], None]) -> threading.Thread:
 @dataclass(frozen=True)
 class RecordingDependencies:
     edge_start: Callable[[Any], Any] = EdgeProcess.start
-    target_wait: Callable[[int], Any] = _wait_for_target
+    target_wait: Callable[[int], Any] = wait_for_page_target
     connection_open: Callable[[Any], Any] = CdpConnection.open
     page_factory: Callable[[Any], Any] = BrowserPage
     recorder_factory: Callable[[Any, str], Any] = lambda page, origin: RecorderSession(page, origin)

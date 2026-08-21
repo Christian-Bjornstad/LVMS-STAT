@@ -58,6 +58,7 @@ class EdgeTests(unittest.TestCase):
         self.assertIn("--remote-debugging-port=49152", arguments)
         self.assertIn("--remote-allow-origins=http://127.0.0.1:49152", arguments)
         self.assertIn("--user-data-dir=C:\\Profiles\\lvms", arguments)
+        self.assertIn("--disable-session-crashed-bubble", arguments)
         self.assertNotIn("--headless", arguments)
         self.assertEqual(arguments[-1], "about:blank")
 

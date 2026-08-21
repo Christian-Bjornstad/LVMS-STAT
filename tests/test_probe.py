@@ -7,7 +7,14 @@ import unittest
 from pathlib import Path
 
 from lvms_stat.cdp import CdpTimeout, PageIdentity, PageTarget
-from lvms_stat.probe import ProbeDependencies, _wait_for_target, run_probe
+from lvms_stat.probe import (
+    CapabilityCode,
+    CapabilityResult,
+    ProbeDependencies,
+    classify_probe_error,
+    run_probe,
+)
+from lvms_stat.cdp import wait_for_page_target
 
 
 class FakeEdge:
@@ -204,7 +211,7 @@ class ProbeTests(unittest.TestCase):
                 raise CdpTimeout("not ready")
             return target
 
-        result = _wait_for_target(
+        result = wait_for_page_target(
             49152,
             timeout_seconds=1,
             discover=discover,
@@ -215,6 +222,17 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(result, target)
         self.assertEqual(attempts, 2)
         self.assertEqual(sleeps, [0.2])
+
+    def test_capability_error_is_fixed_and_redacted(self) -> None:
+        result = classify_probe_error(
+            CdpTimeout("ws://127.0.0.1:55555/private")
+        )
+
+        self.assertEqual(
+            result,
+            CapabilityResult(CapabilityCode.CDP_UNAVAILABLE, False),
+        )
+        self.assertNotIn("55555", result.user_message)
 
 
 if __name__ == "__main__":

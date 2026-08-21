@@ -106,6 +106,23 @@ def discover_page(
     raise CdpTimeout("Edge has not created a page target")
 
 
+def wait_for_page_target(
+    port: int,
+    *,
+    timeout_seconds: float = 20,
+    discover: Callable[[int], PageTarget] = discover_page,
+    clock: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+) -> PageTarget:
+    deadline = clock() + timeout_seconds
+    while clock() < deadline:
+        try:
+            return discover(port)
+        except CdpTimeout:
+            sleep(0.2)
+    raise CdpTimeout("Edge connection timed out")
+
+
 class CdpConnection:
     def __init__(self, socket: Any) -> None:
         self._socket = socket

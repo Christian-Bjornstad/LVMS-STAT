@@ -68,6 +68,7 @@ def build_edge_arguments(edge: Path, profile: Path, port: int) -> list[str]:
         "--no-default-browser-check",
         "--disable-background-mode",
         "--disable-features=msEdgeStartupBoost",
+        "--disable-session-crashed-bubble",
         "about:blank",
     ]
 
