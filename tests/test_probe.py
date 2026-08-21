@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from lvms_stat.cdp import CdpTimeout, PageIdentity, PageTarget
+from lvms_stat.cdp import BrowserPage, CdpTimeout, PageIdentity, PageTarget
 from lvms_stat.probe import (
     CapabilityCode,
     CapabilityResult,
@@ -192,12 +192,43 @@ class ProbeTests(unittest.TestCase):
         self.assertEqual(attempts["count"], 2)
 
     def test_doctor_classifies_navigation_timeout_as_sso_timeout(self) -> None:
-        class TimeoutPage(FakePage):
-            def navigate(self, *args: object, **kwargs: object) -> PageIdentity:
-                raise CdpTimeout("private redirect detail")
+        class NavigationConnection(FakeConnection):
+            def __init__(self) -> None:
+                super().__init__()
+                self.responses = [
+                    {}, {}, {},
+                    {"result": {"value": "complete"}},
+                    {"result": {"value": "https://sso.example.invalid"}},
+                ]
 
-        page = TimeoutPage(PageIdentity("https://lvms.example.invalid", "LVMS"))
-        dependencies, _, _ = self.dependencies(page=page)
+            def call(self, *args: object, **kwargs: object) -> dict[str, object]:
+                return self.responses.pop(0)
+
+        class FastBrowserPage(BrowserPage):
+            def navigate(
+                self, landing_url: str, expected_origin: str, *, timeout_seconds: float
+            ) -> PageIdentity:
+                del timeout_seconds
+                ticks = iter((0.0, 0.0, 1.0))
+                return super().navigate(
+                    landing_url,
+                    expected_origin,
+                    timeout_seconds=1,
+                    clock=lambda: next(ticks),
+                    sleep=lambda seconds: None,
+                )
+
+        edge = FakeEdge()
+        connection = NavigationConnection()
+        dependencies = ProbeDependencies(
+            edge_start=lambda profile: edge,
+            target_wait=lambda port: PageTarget(
+                "page", "ws://127.0.0.1:49152/devtools/page/page", 49152
+            ),
+            connection_open=lambda target: connection,
+            page_factory=FastBrowserPage,
+            sleeper=lambda seconds: None,
+        )
         output = io.StringIO()
 
         result = run_doctor(

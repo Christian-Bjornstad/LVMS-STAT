@@ -101,8 +101,13 @@ class ReportContractTests(unittest.TestCase):
             **identity("INPUT", "analyses"),
             "type": "hidden",
         }
+        checkbox_date = payload()
+        checkbox_date["created_from"] = {
+            **identity("INPUT", "created-from"),
+            "type": "checkbox",
+        }
 
-        for raw in (invalid_selector, invalid_export, hidden_analysis):
+        for raw in (invalid_selector, invalid_export, hidden_analysis, checkbox_date):
             with self.subTest(raw=raw):
                 with self.assertRaisesRegex(ReportContractError, "control"):
                     sanitize_report_contract(raw)

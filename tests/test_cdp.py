@@ -10,6 +10,7 @@ from lvms_stat.cdp import (
     BrowserPage,
     CdpConnection,
     CdpProtocolError,
+    CdpTimeout,
     PageIdentity,
     UnexpectedOriginError,
     discover_page,
@@ -181,7 +182,7 @@ class CdpTests(unittest.TestCase):
 
         self.assertEqual(identity, PageIdentity("https://lvms.example.invalid", "LVMS"))
 
-    def test_rejects_unexpected_origin_without_returning_full_url(self) -> None:
+    def test_navigation_times_out_when_sso_never_returns_to_expected_origin(self) -> None:
         cdp = FakeCdp(
             [
                 {},
@@ -194,7 +195,7 @@ class CdpTests(unittest.TestCase):
         ticks = iter((0.0, 0.0, 1.0))
         page = BrowserPage(cdp)
 
-        with self.assertRaises(UnexpectedOriginError) as caught:
+        with self.assertRaises(CdpTimeout) as caught:
             page.navigate(
                 "https://lvms.example.invalid/",
                 "https://lvms.example.invalid",
@@ -203,7 +204,7 @@ class CdpTests(unittest.TestCase):
                 sleep=lambda seconds: None,
             )
 
-        self.assertEqual(str(caught.exception), "Edge reached an unexpected origin")
+        self.assertEqual(str(caught.exception), "SSO did not return to the expected origin")
 
     def test_inspection_always_passes_through_sanitizer(self) -> None:
         page = BrowserPage(

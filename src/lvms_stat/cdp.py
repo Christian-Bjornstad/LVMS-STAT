@@ -481,7 +481,7 @@ return "selected";
             sleep(0.1)
         else:
             if last_origin != expected_origin:
-                raise UnexpectedOriginError("Edge reached an unexpected origin")
+                raise CdpTimeout("SSO did not return to the expected origin")
             raise CdpTimeout("Edge navigation timed out")
 
         title = self._evaluate("document.title", timeout_seconds=2)

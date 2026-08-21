@@ -169,14 +169,18 @@ def sanitize_report_contract(raw: object) -> ReportContract:
     }
     if any(controls[role].tag not in tags for role, tags in role_tags.items()):
         raise ReportContractError("report role control is invalid")
-    input_roles = {
-        "report_type", "category", "report_id", "analysis_codes",
-        "created_from", "created_to",
+    input_types = {
+        "report_type": {"", "text", "search"},
+        "category": {"", "text", "search"},
+        "report_id": {"", "text", "search"},
+        "analysis_codes": {"", "text", "search"},
+        "created_from": {"", "text", "date"},
+        "created_to": {"", "text", "date"},
     }
     if any(
         controls[role].tag == "INPUT"
-        and controls[role].control_type in {"hidden", "password", "button", "submit", "image"}
-        for role in input_roles
+        and controls[role].control_type not in allowed_types
+        for role, allowed_types in input_types.items()
     ):
         raise ReportContractError("report role control is invalid")
     export = controls["export"]
