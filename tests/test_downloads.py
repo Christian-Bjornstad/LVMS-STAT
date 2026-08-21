@@ -8,6 +8,7 @@ from lvms_stat.downloads import (
     CsvArrivalDetector,
     DownloadError,
     DownloadStatus,
+    finalize_csv,
     open_local,
 )
 
@@ -81,6 +82,41 @@ class DownloadTests(unittest.TestCase):
         (self.root / "report.csv").write_bytes(b"synthetic")
 
         self.assertEqual(detector.poll(), DownloadStatus.AMBIGUOUS)
+
+    def test_finalize_csv_moves_without_overwriting(self) -> None:
+        source = self.root / "generated.csv"
+        source.write_bytes(b"synthetic")
+
+        destination = finalize_csv(
+            source, self.root, "one__2026-08-01__2026-08-07.csv"
+        )
+
+        self.assertTrue(destination.is_file())
+        self.assertFalse(source.exists())
+        destination.write_bytes(b"existing")
+        second = self.root / "second.csv"
+        second.write_bytes(b"new")
+        with self.assertRaises(DownloadError):
+            finalize_csv(second, self.root, destination.name)
+        self.assertTrue(second.is_file())
+        self.assertEqual(destination.read_bytes(), b"existing")
+
+    def test_finalize_csv_rejects_unsafe_paths_and_suffixes(self) -> None:
+        source = self.root / "source.csv"
+        source.write_bytes(b"synthetic")
+        outside = self.root / "outside"
+        outside.mkdir()
+        invalid = (
+            (Path("source.csv"), self.root, "target.csv"),
+            (source, Path("relative"), "target.csv"),
+            (source, outside, "target.csv"),
+            (source, self.root, "target.txt"),
+        )
+        for source_path, directory, filename in invalid:
+            with self.subTest(source=source_path, directory=directory, filename=filename):
+                with self.assertRaises(DownloadError) as caught:
+                    finalize_csv(source_path, directory, filename)
+                self.assertNotIn(str(self.root), str(caught.exception))
 
 
 if __name__ == "__main__":

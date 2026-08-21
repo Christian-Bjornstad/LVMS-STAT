@@ -73,6 +73,28 @@ class ReportJob:
         )
 
 
+def batch_filename(job: ReportJob) -> str:
+    return (
+        f"{job.output_stem}__{job.interval.created_from.isoformat()}"
+        f"__{job.interval.created_to.isoformat()}.csv"
+    )
+
+
+def select_batch_jobs(
+    jobs: tuple[ReportJob, ...], job_keys: tuple[str, ...]
+) -> tuple[ReportJob, ...]:
+    if len(job_keys) != 3 or len(set(job_keys)) != 3:
+        raise ReportJobError("batch requires three distinct job keys")
+    jobs_by_key = {job.job_key: job for job in jobs}
+    if any(key not in jobs_by_key for key in job_keys):
+        raise ReportJobError("batch job was not found")
+    selected = tuple(jobs_by_key[key] for key in job_keys)
+    filenames = tuple(batch_filename(job) for job in selected)
+    if len(set(filenames)) != len(filenames):
+        raise ReportJobError("batch output targets contain duplicates")
+    return selected
+
+
 def _text(raw: Mapping[str, object], key: str, *, maximum: int = 120) -> str:
     value = raw.get(key)
     if not isinstance(value, str) or not value.strip() or len(value.strip()) > maximum:

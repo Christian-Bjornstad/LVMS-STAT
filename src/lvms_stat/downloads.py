@@ -24,6 +24,28 @@ class FileStamp:
     modified_ns: int
 
 
+def finalize_csv(source: Path, directory: Path, filename: str) -> Path:
+    if not source.is_absolute() or not directory.is_absolute():
+        raise DownloadError("CSV finalization target is invalid")
+    resolved_directory = directory.resolve()
+    resolved_source = source.resolve()
+    destination = resolved_directory / filename
+    if (
+        resolved_source.parent != resolved_directory
+        or resolved_source.suffix.lower() != ".csv"
+        or destination.parent != resolved_directory
+        or destination.suffix.lower() != ".csv"
+        or not resolved_source.is_file()
+        or destination.exists()
+    ):
+        raise DownloadError("CSV finalization target is invalid")
+    try:
+        resolved_source.rename(destination)
+    except OSError as exc:
+        raise DownloadError("CSV finalization failed") from exc
+    return destination
+
+
 def _stamp(path: Path) -> FileStamp:
     stat = path.stat()
     return FileStamp(stat.st_size, stat.st_mtime_ns)

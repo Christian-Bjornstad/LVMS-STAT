@@ -8,7 +8,9 @@ from pathlib import Path
 from lvms_stat.report_job import (
     JobReview,
     ReportJobError,
+    batch_filename,
     load_report_jobs,
+    select_batch_jobs,
     validate_report_job,
 )
 
@@ -65,6 +67,57 @@ class ReportJobTests(unittest.TestCase):
 
             self.assertEqual(len(jobs), 1)
             self.assertEqual(jobs[0].job_key, "synthetic_ordered")
+
+    def test_select_batch_jobs_preserves_exact_three_key_order(self) -> None:
+        jobs = tuple(
+            validate_report_job(
+                {**self.valid(), "job_key": key, "output_stem": key}
+            )
+            for key in ("one", "two", "three")
+        )
+
+        selected = select_batch_jobs(jobs, ("three", "one", "two"))
+
+        self.assertEqual(
+            tuple(item.job_key for item in selected), ("three", "one", "two")
+        )
+
+    def test_select_batch_jobs_rejects_invalid_or_colliding_keys(self) -> None:
+        jobs = tuple(
+            validate_report_job(
+                {
+                    **self.valid(),
+                    "job_key": key,
+                    "output_stem": "shared" if key != "three" else key,
+                }
+            )
+            for key in ("one", "two", "three")
+        )
+        invalid_keys = (
+            ("one",),
+            ("one", "one", "two"),
+            ("one", "two", "missing"),
+            ("one", "two", "three"),
+        )
+        for keys in invalid_keys:
+            with self.subTest(keys=keys):
+                with self.assertRaises(ReportJobError):
+                    select_batch_jobs(jobs, keys)
+
+    def test_batch_filename_is_deterministic(self) -> None:
+        job = validate_report_job(
+            {
+                **self.valid(),
+                "job_key": "one",
+                "output_stem": "one",
+                "created_from": "01.08.2026",
+                "created_to": "07.08.2026",
+            }
+        )
+
+        self.assertEqual(
+            batch_filename(job), "one__2026-08-01__2026-08-07.csv"
+        )
 
 
 if __name__ == "__main__":
