@@ -10,6 +10,7 @@ from lvms_stat.cdp import (
     BrowserPage,
     CdpConnection,
     CdpProtocolError,
+    CdpNavigationError,
     CdpTimeout,
     PageIdentity,
     UnexpectedOriginError,
@@ -117,6 +118,21 @@ class CdpTests(unittest.TestCase):
         self.assertEqual(target.target_id, "page-1")
         self.assertEqual(target.port, 49152)
 
+    def test_discovers_os_selected_non_privileged_loopback_port(self) -> None:
+        payload = [
+            {
+                "type": "page",
+                "id": "page-low",
+                "webSocketDebuggerUrl": "ws://127.0.0.1:15142/devtools/page/page-low",
+            }
+        ]
+
+        target = discover_page(
+            15142, opener=lambda request, timeout: FakeHttpResponse(payload)
+        )
+
+        self.assertEqual(target.port, 15142)
+
     def test_rejects_non_loopback_websocket_target(self) -> None:
         payload = [
             {
@@ -181,6 +197,21 @@ class CdpTests(unittest.TestCase):
         )
 
         self.assertEqual(identity, PageIdentity("https://lvms.example.invalid", "LVMS"))
+
+    def test_navigation_exposes_only_bounded_network_error_category(self) -> None:
+        page = BrowserPage(
+            FakeCdp([{}, {}, {"errorText": "net::ERR_NAME_NOT_RESOLVED private-url"}])
+        )
+
+        with self.assertRaises(CdpNavigationError) as caught:
+            page.navigate(
+                "https://lvms.example.invalid/",
+                "https://lvms.example.invalid",
+            )
+
+        self.assertEqual(str(caught.exception), "Edge navigation failed: net::ERR_NAME_NOT_RESOLVED")
+        self.assertEqual(caught.exception.category, "net::ERR_NAME_NOT_RESOLVED")
+        self.assertNotIn("private-url", str(caught.exception))
 
     def test_navigation_times_out_when_sso_never_returns_to_expected_origin(self) -> None:
         cdp = FakeCdp(

@@ -79,7 +79,7 @@ CONTROL_INSPECTION_SCRIPT = r"""
         type,
         role: cleanText(element.getAttribute("role")),
         label: labelFor(element),
-        text: cleanText(element.innerText),
+        text: element.tagName === "SELECT" ? "" : cleanText(element.innerText),
         frame
       });
       if (output.length >= 200) return;
@@ -138,7 +138,10 @@ def sanitize_controls(
             continue
 
         safe_control: dict[str, str] = {}
+        is_select = isinstance(item.get("tag"), str) and item["tag"].strip().upper() == "SELECT"
         for field in SAFE_CONTROL_FIELDS:
+            if is_select and field == "text":
+                continue
             value = item.get(field)
             if isinstance(value, str) and value.strip():
                 safe_control[field] = value.strip()[:max_text_length]

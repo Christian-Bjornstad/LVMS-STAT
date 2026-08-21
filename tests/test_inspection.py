@@ -56,6 +56,14 @@ class InspectionTests(unittest.TestCase):
 
         self.assertEqual(result, [{"tag": "BUTTON", "text": "Export"}])
 
+    def test_select_controls_never_return_option_text(self) -> None:
+        result = sanitize_controls(
+            [{"tag": "SELECT", "id": "report-type", "text": "OPTION A OPTION B"}]
+        )
+
+        self.assertEqual(result, [{"tag": "SELECT", "id": "report-type"}])
+        self.assertIn('element.tagName === "SELECT" ? ""', CONTROL_INSPECTION_SCRIPT)
+
     def test_rejects_non_list_payload_and_caps_control_count(self) -> None:
         with self.assertRaisesRegex(InspectionError, "must be a list"):
             sanitize_controls({"tag": "BUTTON"})

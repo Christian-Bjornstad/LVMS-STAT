@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 
-EPHEMERAL_PORT_MIN = 49152
+EPHEMERAL_PORT_MIN = 1024
 EPHEMERAL_PORT_MAX = 65535
 
 
@@ -47,12 +47,12 @@ def reserve_loopback_port() -> int:
             port = int(listener.getsockname()[1])
         if EPHEMERAL_PORT_MIN <= port <= EPHEMERAL_PORT_MAX:
             return port
-    raise EdgeLaunchError("an ephemeral loopback port could not be reserved")
+    raise EdgeLaunchError("a non-privileged loopback port could not be reserved")
 
 
 def build_edge_arguments(edge: Path, profile: Path, port: int) -> list[str]:
     if not EPHEMERAL_PORT_MIN <= port <= EPHEMERAL_PORT_MAX:
-        raise EdgeLaunchError("remote debugging must use an ephemeral port")
+        raise EdgeLaunchError("remote debugging must use a non-privileged port")
     if not profile.is_absolute():
         raise EdgeLaunchError("Edge profile path must be absolute")
 

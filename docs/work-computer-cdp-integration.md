@@ -8,6 +8,10 @@ Use only the organisation-controlled work computer and your normal authorised ac
 
 Copy `config.example.json` to the ignored `config.json` and `jobs.example.json` to the ignored `jobs.json`. Replace only the placeholders locally. Use a clean HTTPS landing URL without credentials, query string, fragment, session data, or a generated download URL. All local directories must be absolute and outside the repository. The download directory must be a dedicated LVMS-STAT inbox beneath Local AppData, not the normal shared Downloads folder.
 
+Use the stable `/clims` entry point in `landing_url`. `expected_origin` may be included, but it must exactly equal the scheme and host derived from that landing URL. Keep the real host only in ignored local configuration.
+
+Direct managed Edge launch with loopback CDP is the validated primary route. The Ivanti/PowerGate LVMS shortcut remains a diagnostic fallback only: LVMS-STAT does not attach to, automate, or terminate a browser process that it did not start.
+
 Before continuing:
 
 ```powershell

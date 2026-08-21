@@ -1,5 +1,6 @@
 {
-  "landing_url": "https://lvms.example.invalid/",
+  "landing_url": "https://lvms.example.invalid/clims",
+  "expected_origin": "https://lvms.example.invalid",
   "profile_directory": "C:/Users/YOUR_USERNAME/AppData/Local/LVMS-STAT/edge-profile",
   "download_directory": "C:/Users/YOUR_USERNAME/AppData/Local/LVMS-STAT/downloads",
   "workflow_directory": "C:/Users/YOUR_USERNAME/AppData/Local/LVMS-STAT/workflows",

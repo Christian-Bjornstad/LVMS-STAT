@@ -6,7 +6,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from lvms_stat.cdp import BrowserPage, CdpTimeout, PageIdentity, PageTarget
+from lvms_stat.cdp import (
+    BrowserPage,
+    CdpNavigationError,
+    CdpTimeout,
+    PageIdentity,
+    PageTarget,
+)
 from lvms_stat.probe import (
     CapabilityCode,
     CapabilityResult,
@@ -266,6 +272,33 @@ class ProbeTests(unittest.TestCase):
         self.assertNotIn("internal detail", output.getvalue())
         self.assertTrue(edge.closed)
         self.assertFalse(connection.closed)
+
+    def test_probe_reports_sanitized_navigation_category(self) -> None:
+        class NavigationFailurePage(FakePage):
+            def navigate(self, *args: object, **kwargs: object) -> PageIdentity:
+                raise CdpNavigationError("net::ERR_NAME_NOT_RESOLVED")
+
+        page = NavigationFailurePage(
+            PageIdentity("https://lvms.example.invalid", "LVMS")
+        )
+        dependencies, edge, connection = self.dependencies(page=page)
+        output = io.StringIO()
+
+        result = run_probe(
+            self.config_path,
+            dependencies=dependencies,
+            output=output,
+            repository_root=self.repository_root,
+            allowed_profile_root=self.local_app_data,
+        )
+
+        self.assertEqual(result, 2)
+        self.assertEqual(
+            output.getvalue(),
+            "Probe failed: navigation error net::ERR_NAME_NOT_RESOLVED.\n",
+        )
+        self.assertTrue(edge.closed)
+        self.assertTrue(connection.closed)
 
     def test_inspect_requires_explicit_confirmation_and_prints_safe_json(self) -> None:
         page = FakePage(

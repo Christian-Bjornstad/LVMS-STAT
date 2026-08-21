@@ -12,6 +12,7 @@ from typing import Any, TextIO
 from lvms_stat.cdp import (
     BrowserPage,
     CdpConnection,
+    CdpNavigationError,
     CdpProtocolError,
     CdpTimeout,
     PageTarget,
@@ -154,6 +155,8 @@ def run_probe(
         active_output.write("Probe failed: managed Edge is unavailable.\n")
     except CdpTimeout:
         active_output.write("Probe failed: Edge connection timed out.\n")
+    except CdpNavigationError as exc:
+        active_output.write(f"Probe failed: navigation error {exc.category}.\n")
     except UnexpectedOriginError:
         active_output.write("Probe failed: Edge reached an unexpected origin.\n")
     except CdpProtocolError:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import secrets
 import time
 import urllib.error
@@ -35,6 +36,18 @@ class CdpProtocolError(CdpError):
 
 class CdpTimeout(CdpError):
     """A bounded DevTools operation did not finish in time."""
+
+
+_NETWORK_ERROR_PATTERN = re.compile(r"net::ERR_[A-Z0-9_]{1,80}")
+
+
+class CdpNavigationError(CdpProtocolError):
+    """Edge navigation failed with a bounded, non-sensitive network category."""
+
+    def __init__(self, error_text: object) -> None:
+        match = _NETWORK_ERROR_PATTERN.search(error_text if isinstance(error_text, str) else "")
+        self.category = match.group(0) if match else "net::ERR_FAILED"
+        super().__init__(f"Edge navigation failed: {self.category}")
 
 
 class UnexpectedOriginError(CdpError):
@@ -467,7 +480,7 @@ return "selected";
             timeout_seconds=timeout_seconds,
         )
         if navigation.get("errorText"):
-            raise CdpProtocolError("Edge navigation failed")
+            raise CdpNavigationError(navigation["errorText"])
 
         deadline = clock() + timeout_seconds
         last_origin: object = None

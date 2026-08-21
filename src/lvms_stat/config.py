@@ -82,9 +82,14 @@ def validate_config(
         )
 
     host_and_port = hostname if port is None else f"{hostname}:{port}"
+    expected_origin = f"https://{host_and_port}"
+    configured_origin = raw.get("expected_origin")
+    if configured_origin is not None:
+        if not isinstance(configured_origin, str) or configured_origin.strip() != expected_origin:
+            raise ConfigError("expected_origin must exactly match the landing URL origin")
     return ProbeConfig(
         landing_url=landing_url,
-        expected_origin=f"https://{host_and_port}",
+        expected_origin=expected_origin,
         profile_directory=profile_directory,
     )
 

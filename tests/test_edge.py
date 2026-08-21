@@ -62,11 +62,21 @@ class EdgeTests(unittest.TestCase):
         self.assertNotIn("--headless", arguments)
         self.assertEqual(arguments[-1], "about:blank")
 
+    def test_accepts_os_selected_non_privileged_loopback_port(self) -> None:
+        arguments = build_edge_arguments(
+            Path("C:/Edge/msedge.exe"), Path("C:/Profiles/lvms"), 15142
+        )
+
+        self.assertIn("--remote-debugging-port=15142", arguments)
+        self.assertIn("--remote-debugging-address=127.0.0.1", arguments)
+
     def test_rejects_non_ephemeral_port(self) -> None:
-        with self.assertRaisesRegex(EdgeLaunchError, "ephemeral"):
-            build_edge_arguments(
-                Path("C:/Edge/msedge.exe"), Path("C:/Profiles/lvms"), 80
-            )
+        for port in (0, 80, 1023, 65536):
+            with self.subTest(port=port):
+                with self.assertRaises(EdgeLaunchError):
+                    build_edge_arguments(
+                        Path("C:/Edge/msedge.exe"), Path("C:/Profiles/lvms"), port
+                    )
 
     def test_close_terminates_only_the_tracked_child(self) -> None:
         process = FakeProcess()

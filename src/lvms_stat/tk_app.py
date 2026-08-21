@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from lvms_stat.app_controller import AppController, UiMessage, ViewModel
-from lvms_stat.config import load_app_config
+from lvms_stat.config import ConfigError, load_app_config
 from lvms_stat.recording_service import RecordingService
 from lvms_stat.workflow import ParameterRole, StepKind, WorkflowStep
 from lvms_stat.workflow import WorkflowError
@@ -17,6 +17,14 @@ from lvms_stat.workflow_store import WorkflowStore
 
 class TkUnavailable(RuntimeError):
     """The approved Python installation cannot create the local UI."""
+
+
+def startup_error_message(error: Exception) -> str:
+    if isinstance(error, ConfigError):
+        return "LVMS-STAT configuration is invalid."
+    if isinstance(error, TkUnavailable):
+        return "LVMS-STAT user interface is unavailable in this Python installation."
+    return "LVMS-STAT app startup failed safely."
 
 
 def load_tkinter(
@@ -208,6 +216,6 @@ def run_app(config_path: Path) -> int:
         view.bind_controller(controller)
         root.mainloop()
         return 0
-    except Exception:
-        print("LVMS-STAT app is unavailable in this Python installation.", file=sys.stderr)
+    except Exception as exc:
+        print(startup_error_message(exc), file=sys.stderr)
         return 2
