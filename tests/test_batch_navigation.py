@@ -234,6 +234,46 @@ class BatchNavigationTests(unittest.TestCase):
         with self.assertRaises(BatchNavigationError):
             timed.reach(unavailable.page, unavailable.actions)
 
+    def test_navigator_only_polls_after_defined_reports_activation(self) -> None:
+        class DelayedDestination:
+            def __init__(self) -> None:
+                self.activations: list[str] = []
+                self.destination_checks = 0
+
+            def current_origin(self) -> str:
+                return EXPECTED_ORIGIN
+
+            def evaluate_safe(
+                self, expression: str, *, timeout_seconds: float = 2
+            ) -> object:
+                del timeout_seconds
+                if "LVMS_DEFINED_REPORTS_PAGE" in expression:
+                    self.destination_checks += 1
+                    return (
+                        page_contract_payload()
+                        if self.destination_checks >= 3
+                        else None
+                    )
+                if "Definerte rapporter" in expression:
+                    return raw_document(
+                        "top", raw_control("A", "defined_reports")
+                    )
+                if "Eksterne rapporter" in expression:
+                    return raw_document("top", raw_control("A", "section"))
+                raise AssertionError("unexpected expression")
+
+            def activate(self, identity: DocumentControlIdentity) -> None:
+                self.activations.append(identity.control.element_id)
+
+        state = DelayedDestination()
+        navigator = DefinedReportsNavigator(
+            EXPECTED_ORIGIN, clock=lambda: 0.0, sleep=lambda seconds: None
+        )
+
+        navigator.reach(state, state)
+
+        self.assertEqual(state.activations, ["defined_reports"])
+
 
 if __name__ == "__main__":
     unittest.main()

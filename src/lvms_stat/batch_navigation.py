@@ -236,6 +236,9 @@ class DefinedReportsNavigator:
             contract = discover_defined_reports_page(page, self._expected_origin)
             if contract is not None:
                 return contract
+            if used_defined_reports:
+                self._sleep(0.1)
+                continue
             if not used_defined_reports:
                 anchor = discover_navigation_anchor(
                     page, self._expected_origin, DEFINED_REPORTS_LABEL
