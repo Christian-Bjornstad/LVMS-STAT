@@ -52,16 +52,21 @@ class ConfigTests(unittest.TestCase):
         self.assertEqual(config.expected_origin, "https://lvms.example.invalid")
 
     def test_rejects_explicit_expected_origin_that_does_not_match_landing_url(self) -> None:
-        with self.assertRaisesRegex(ConfigError, "expected_origin"):
-            validate_config(
-                {
-                    "landing_url": "https://lvms.example.invalid/clims",
-                    "expected_origin": "https://other.example.invalid",
-                    "profile_directory": str(self.temp_root / "profile"),
-                },
-                repository_root=self.repo_root,
-                allowed_profile_root=self.temp_root,
-            )
+        for configured_origin in (
+            "https://other.example.invalid",
+            " https://lvms.example.invalid ",
+        ):
+            with self.subTest(configured_origin=configured_origin):
+                with self.assertRaisesRegex(ConfigError, "expected_origin"):
+                    validate_config(
+                        {
+                            "landing_url": "https://lvms.example.invalid/clims",
+                            "expected_origin": configured_origin,
+                            "profile_directory": str(self.temp_root / "profile"),
+                        },
+                        repository_root=self.repo_root,
+                        allowed_profile_root=self.temp_root,
+                    )
 
     def test_rejects_insecure_or_sensitive_landing_urls(self) -> None:
         invalid_urls = (
