@@ -1,0 +1,71 @@
+from __future__ import annotations
+
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from lvms_stat.report_job import (
+    JobReview,
+    ReportJobError,
+    load_report_jobs,
+    validate_report_job,
+)
+
+
+class ReportJobTests(unittest.TestCase):
+    def valid(self) -> dict[str, object]:
+        return {
+            "job_key": "synthetic_ordered",
+            "report_type": "TYPE_A",
+            "category": "CATEGORY_A",
+            "report_id": "REPORT-A",
+            "analysis_codes": ["ANALYSIS-A", "ANALYSIS-B"],
+            "created_from": "01.01.2026",
+            "created_to": "21.08.2026",
+            "output_stem": "synthetic_ordered",
+        }
+
+    def test_normalizes_codes_and_builds_redacted_review(self) -> None:
+        job = validate_report_job(self.valid())
+
+        self.assertEqual(job.analysis_codes, ("ANALYSIS-A", "ANALYSIS-B"))
+        self.assertEqual(
+            job.review(),
+            JobReview(
+                job_key="synthetic_ordered",
+                report_id="REPORT-A",
+                analysis_count=2,
+                created_from="01.01.2026",
+                created_to="21.08.2026",
+            ),
+        )
+        self.assertNotIn("ANALYSIS-A", str(job.review()))
+
+    def test_rejects_unsafe_or_ambiguous_values(self) -> None:
+        invalid = (
+            {"analysis_codes": ["A", "A"]},
+            {"analysis_codes": ["A,,B"]},
+            {"created_from": "2026-01-01"},
+            {"created_from": "22.08.2026", "created_to": "21.08.2026"},
+            {"output_stem": "../escape"},
+            {"job_key": ""},
+        )
+        for changes in invalid:
+            with self.subTest(changes=changes):
+                with self.assertRaises(ReportJobError):
+                    validate_report_job({**self.valid(), **changes})
+
+    def test_loads_unique_jobs_from_local_json(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            path = Path(temporary_directory) / "jobs.json"
+            path.write_text(json.dumps({"jobs": [self.valid()]}), encoding="utf-8")
+
+            jobs = load_report_jobs(path)
+
+            self.assertEqual(len(jobs), 1)
+            self.assertEqual(jobs[0].job_key, "synthetic_ordered")
+
+
+if __name__ == "__main__":
+    unittest.main()

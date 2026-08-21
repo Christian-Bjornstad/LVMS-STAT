@@ -23,6 +23,7 @@ class ProbeConfig:
 class AppConfig(ProbeConfig):
     download_directory: Path
     workflow_directory: Path
+    contract_directory: Path
 
 
 def _required_text(raw: Mapping[str, object], key: str) -> str:
@@ -146,14 +147,18 @@ def validate_app_config(
     )
     downloads = _external_directory(raw, "download_directory", repository_root)
     workflows = _external_directory(raw, "workflow_directory", repository_root)
+    contracts = _external_directory(raw, "contract_directory", repository_root)
     if workflows == local or local not in workflows.parents:
         raise ConfigError("workflow_directory must be beneath local application data")
+    if contracts == local or local not in contracts.parents:
+        raise ConfigError("contract_directory must be beneath local application data")
     return AppConfig(
         landing_url=probe.landing_url,
         expected_origin=probe.expected_origin,
         profile_directory=probe.profile_directory,
         download_directory=downloads,
         workflow_directory=workflows,
+        contract_directory=contracts,
     )
 
 

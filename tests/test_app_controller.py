@@ -68,7 +68,7 @@ class FakeStore:
 class ControllerTests(unittest.TestCase):
     def setUp(self) -> None:
         root = Path(tempfile.gettempdir()).resolve()
-        self.config = AppConfig("https://x.invalid/", "https://x.invalid", root / "p", root / "d", root / "w")
+        self.config = AppConfig("https://x.invalid/", "https://x.invalid", root / "p", root / "d", root / "w", root / "c")
         self.view, self.service, self.store = FakeView(), FakeService(), FakeStore()
         self.controller = AppController(self.view, self.service, self.store, self.config)
 
@@ -109,7 +109,7 @@ class ControllerTests(unittest.TestCase):
             store = WorkflowStore(root / "workflows")
             config = AppConfig(
                 "https://lvms.example.invalid/", "https://lvms.example.invalid",
-                root / "profile", root / "downloads", root / "workflows",
+                root / "profile", root / "downloads", root / "workflows", root / "contracts",
             )
             controller = AppController(view, service, store, config)
             controller.start("Example report", "Defined Reports export")

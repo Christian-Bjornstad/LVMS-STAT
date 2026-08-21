@@ -72,6 +72,7 @@ class RecordingServiceTests(unittest.TestCase):
             root / "profile",
             root / "downloads",
             root / "workflows",
+            root / "contracts",
         )
 
     def service(self, recorder: FakeRecorder) -> tuple[RecordingService, Closable, Closable]:

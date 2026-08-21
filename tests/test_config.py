@@ -104,6 +104,7 @@ class ConfigTests(unittest.TestCase):
             "profile_directory": str(local / "LVMS-STAT" / "edge-profile"),
             "download_directory": str(downloads),
             "workflow_directory": str(local / "LVMS-STAT" / "workflows"),
+            "contract_directory": str(local / "LVMS-STAT" / "contracts"),
         }
 
         config = validate_app_config(
@@ -115,6 +116,10 @@ class ConfigTests(unittest.TestCase):
             config.workflow_directory,
             (local / "LVMS-STAT" / "workflows").resolve(),
         )
+        self.assertEqual(
+            config.contract_directory,
+            (local / "LVMS-STAT" / "contracts").resolve(),
+        )
 
     def test_rejects_unsafe_recorder_directories(self) -> None:
         local = self.temp_root / "local-app-data"
@@ -124,6 +129,7 @@ class ConfigTests(unittest.TestCase):
             "profile_directory": str(local / "profile"),
             "download_directory": str(self.temp_root / "downloads"),
             "workflow_directory": str(local / "workflows"),
+            "contract_directory": str(local / "contracts"),
         }
         invalid = (
             {**base, "download_directory": "relative/downloads"},
