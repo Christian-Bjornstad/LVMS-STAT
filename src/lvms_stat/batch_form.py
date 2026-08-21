@@ -141,7 +141,8 @@ def _role_script(role: str) -> str:
         candidates.push(identity(control, item.frame));
     }}
   }}
-  return candidates.length === 1 ? candidates[0] : null;
+  if (candidates.length === 0) return null;
+  return candidates.length === 1 ? candidates[0] : {{ambiguous: true}};
 }})()
 """.strip()
 
@@ -203,6 +204,18 @@ class BatchReportForm:
                 return control
             self._sleep(0.1)
         raise BatchFormError("report form did not reach the required stage")
+
+    def wait_until_clear(self) -> None:
+        deadline = self._clock() + self._timeout_seconds
+        while self._clock() < deadline:
+            if all(
+                discover_report_role(self._page, self._expected_origin, role)
+                is None
+                for role in _ROLE_ALIASES
+            ):
+                return
+            self._sleep(0.1)
+        raise BatchFormError("report form did not clear")
 
     def populate(self, page_contract: DefinedReportsPage, job: ReportJob) -> None:
         if not isinstance(page_contract, DefinedReportsPage) or not isinstance(

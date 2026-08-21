@@ -160,6 +160,7 @@ def run_report_batch(
             current_job = job.job_key
             contract = _wait_for_page(page, config.expected_origin, active)
             actions.activate(contract.clear)
+            form.wait_until_clear()
             contract = _wait_for_page(page, config.expected_origin, active)
             form.populate(contract, job)
             _write_review(stream, job)

@@ -149,6 +149,26 @@ class TickingClock:
         return self.value
 
 
+class ClearingPage:
+    def __init__(self, *, clears_after_category_checks: int | None) -> None:
+        self.clears_after_category_checks = clears_after_category_checks
+        self.category_checks = 0
+
+    def current_origin(self) -> str:
+        return EXPECTED_ORIGIN
+
+    def evaluate_safe(self, expression: str, *, timeout_seconds: float = 2) -> object:
+        del timeout_seconds
+        if 'const requestedRole = "category"' in expression:
+            self.category_checks += 1
+            if (
+                self.clears_after_category_checks is None
+                or self.category_checks <= self.clears_after_category_checks
+            ):
+                return ROLE_PAYLOADS["category"]
+        return None
+
+
 class BatchFormTests(unittest.TestCase):
     def test_discovers_each_supported_role_across_named_documents(self) -> None:
         expected_ids = {
@@ -178,6 +198,7 @@ class BatchFormTests(unittest.TestCase):
                 ):
                     self.assertNotIn(forbidden, script)
                 self.assertIn("if (!visible(frame)) continue;", script)
+                self.assertIn("ambiguous: true", script)
 
     def test_role_discovery_rejects_unknown_absent_or_wrong_origin(self) -> None:
         with self.assertRaises(BatchFormError):
@@ -251,6 +272,34 @@ class BatchFormTests(unittest.TestCase):
                 ("choose", "_nav_frame1", "category", "CATEGORY_A"),
             ],
         )
+
+    def test_wait_until_clear_requires_every_dynamic_role_to_be_absent(self) -> None:
+        page = ClearingPage(clears_after_category_checks=1)
+        form = BatchReportForm(
+            page,
+            FormState().actions,
+            EXPECTED_ORIGIN,
+            clock=lambda: 0.0,
+            sleep=lambda seconds: None,
+        )
+
+        form.wait_until_clear()
+
+        self.assertEqual(page.category_checks, 2)
+
+    def test_wait_until_clear_times_out_while_a_dynamic_role_remains(self) -> None:
+        page = ClearingPage(clears_after_category_checks=None)
+        form = BatchReportForm(
+            page,
+            FormState().actions,
+            EXPECTED_ORIGIN,
+            timeout_seconds=2,
+            clock=TickingClock(),
+            sleep=lambda seconds: None,
+        )
+
+        with self.assertRaises(BatchFormError):
+            form.wait_until_clear()
 
 
 if __name__ == "__main__":

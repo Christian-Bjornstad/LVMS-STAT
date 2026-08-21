@@ -140,6 +140,11 @@ class BatchHarness:
                 return page_contract()
 
         class Form:
+            def wait_until_clear(self) -> None:
+                key = harness.current_job
+                if harness.failure_stage == "clear_wait" and key == harness.failed_job:
+                    raise RuntimeError("synthetic clear wait failure")
+
             def populate(self, contract: DefinedReportsPage, job: ReportJob) -> None:
                 del contract
                 harness.current_job = job.job_key
@@ -245,7 +250,13 @@ class BatchRunnerTests(unittest.TestCase):
         self.assertNotIn(str(harness.config.download_directory), output)
 
     def test_stops_on_first_job_failure_without_export_retry(self) -> None:
-        for stage in ("clear", "populate", "download_ambiguous", "duplicate_target"):
+        for stage in (
+            "clear",
+            "clear_wait",
+            "populate",
+            "download_ambiguous",
+            "duplicate_target",
+        ):
             with self.subTest(stage=stage):
                 harness = BatchHarness(stage)
                 result, _ = self.run_harness(harness)
