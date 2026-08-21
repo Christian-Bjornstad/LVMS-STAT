@@ -93,6 +93,8 @@ class CsvArrivalDetector:
     def start(self) -> None:
         self._baseline = self._scan()
         self._temporary_baseline = self._scan_temporary()
+        if self._temporary_baseline:
+            raise DownloadError("temporary download already exists")
         self._entry_baseline = self._scan_files()
         self._pending = None
         self._detected = None

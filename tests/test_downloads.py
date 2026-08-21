@@ -75,6 +75,13 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(detector.poll(), DownloadStatus.WAITING)
         self.assertEqual(detector.poll(), DownloadStatus.DETECTED)
 
+    def test_rejects_temporary_file_already_present_at_baseline(self) -> None:
+        (self.root / "lingering.csv.crdownload").write_bytes(b"partial")
+        detector = CsvArrivalDetector(self.root)
+
+        with self.assertRaisesRegex(DownloadError, "temporary"):
+            detector.start()
+
     def test_rejects_unexpected_non_csv_file(self) -> None:
         detector = CsvArrivalDetector(self.root)
         detector.start()
