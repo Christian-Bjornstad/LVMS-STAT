@@ -5,6 +5,7 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from lvms_stat.probe import run_probe
+from lvms_stat.report_runner import discover_report, run_report_job
 from lvms_stat.tk_app import run_app
 
 
@@ -28,6 +29,19 @@ def build_parser() -> argparse.ArgumentParser:
             help="Path to the ignored local config.json file.",
         )
 
+    discover_parser = subcommands.add_parser(
+        "discover-report", help="Save a sanitized defined-report field contract."
+    )
+    discover_parser.add_argument("--config", type=Path, required=True)
+
+    run_parser = subcommands.add_parser(
+        "run-job", help="Populate and explicitly export one local report job."
+    )
+    run_parser.add_argument("--config", type=Path, required=True)
+    run_parser.add_argument("--jobs", type=Path, required=True)
+    run_parser.add_argument("--contract", type=Path, required=True)
+    run_parser.add_argument("--job", dest="job_key", required=True)
+
     return parser
 
 
@@ -36,10 +50,18 @@ def main(
     *,
     probe_runner: Callable[..., int] = run_probe,
     app_runner: Callable[[Path], int] = run_app,
+    discover_runner: Callable[[Path], int] = discover_report,
+    report_runner: Callable[[Path, Path, Path, str], int] = run_report_job,
 ) -> int:
     arguments = build_parser().parse_args(argv)
     if arguments.command == "app":
         return app_runner(arguments.config)
+    if arguments.command == "discover-report":
+        return discover_runner(arguments.config)
+    if arguments.command == "run-job":
+        return report_runner(
+            arguments.config, arguments.jobs, arguments.contract, arguments.job_key
+        )
     return probe_runner(arguments.config, inspect=arguments.command == "inspect")
 
 

@@ -7,16 +7,25 @@ from lvms_stat.__main__ import build_parser, main
 
 
 class CliTests(unittest.TestCase):
-    def test_parser_exposes_probe_inspect_and_app_commands(self) -> None:
+    def test_parser_exposes_probe_inspect_app_and_report_commands(self) -> None:
         parser = build_parser()
 
         probe = parser.parse_args(["probe", "--config", "config.json"])
         inspect = parser.parse_args(["inspect", "--config", "config.json"])
         app = parser.parse_args(["app", "--config", "config.json"])
+        discover = parser.parse_args(["discover-report", "--config", "config.json"])
+        run = parser.parse_args(
+            [
+                "run-job", "--config", "config.json", "--jobs", "jobs.json",
+                "--contract", "contract.json", "--job", "weekly",
+            ]
+        )
 
         self.assertEqual(probe.command, "probe")
         self.assertEqual(inspect.command, "inspect")
         self.assertEqual(app.command, "app")
+        self.assertEqual(discover.command, "discover-report")
+        self.assertEqual(run.job_key, "weekly")
 
     def test_main_passes_explicit_inspection_mode_to_runner(self) -> None:
         calls: list[tuple[Path, bool]] = []
@@ -38,6 +47,30 @@ class CliTests(unittest.TestCase):
         )
         self.assertEqual(result, 9)
         self.assertEqual(calls, [Path("safe.json")])
+
+    def test_main_dispatches_report_commands(self) -> None:
+        discover_calls: list[Path] = []
+        run_calls: list[tuple[Path, Path, Path, str]] = []
+
+        discovered = main(
+            ["discover-report", "--config", "safe.json"],
+            discover_runner=lambda path: discover_calls.append(path) or 5,
+        )
+        ran = main(
+            [
+                "run-job", "--config", "safe.json", "--jobs", "jobs.json",
+                "--contract", "contract.json", "--job", "weekly",
+            ],
+            report_runner=lambda *args: run_calls.append(args) or 6,
+        )
+
+        self.assertEqual(discovered, 5)
+        self.assertEqual(ran, 6)
+        self.assertEqual(discover_calls, [Path("safe.json")])
+        self.assertEqual(
+            run_calls,
+            [(Path("safe.json"), Path("jobs.json"), Path("contract.json"), "weekly")],
+        )
 
 
 if __name__ == "__main__":
