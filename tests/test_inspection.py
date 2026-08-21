@@ -7,6 +7,7 @@ from lvms_stat.inspection import (
     InspectionError,
     sanitize_controls,
 )
+from lvms_stat.report_contract import CONTRACT_DISCOVERY_SCRIPT
 
 
 class InspectionTests(unittest.TestCase):
@@ -82,6 +83,7 @@ class InspectionTests(unittest.TestCase):
         for fragment in forbidden_fragments:
             with self.subTest(fragment=fragment):
                 self.assertNotIn(fragment, CONTROL_INSPECTION_SCRIPT)
+                self.assertNotIn(fragment, CONTRACT_DISCOVERY_SCRIPT)
 
 
 if __name__ == "__main__":
