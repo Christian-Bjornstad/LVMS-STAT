@@ -10,9 +10,15 @@ class CliTests(unittest.TestCase):
     def test_help_exposes_supervised_gates_without_real_environment_values(self) -> None:
         help_text = build_parser().format_help()
 
-        for command in ("doctor", "discover-report", "run-job"):
+        for command in ("doctor", "discover-report", "run-job", "run-batch"):
             self.assertIn(command, help_text)
-        for forbidden in ("internal.example", "REAL_APP_ID", "JSESSIONID"):
+        for forbidden in (
+            "internal.example",
+            "REAL_APP_ID",
+            "JSESSIONID",
+            "sykehuspartner",
+            "PAT-DIT",
+        ):
             self.assertNotIn(forbidden, help_text)
 
     def test_parser_exposes_probe_inspect_app_and_report_commands(self) -> None:

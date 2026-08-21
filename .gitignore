@@ -33,3 +33,6 @@ workflows/
 *.xls
 *.har
 *.crdownload
+*.partial
+*.batch.log
+batch-logs/
