@@ -6,6 +6,7 @@ import unittest
 from io import BytesIO
 from pathlib import Path
 
+from lvms_stat.batch_controls import DocumentControlIdentity
 from lvms_stat.cdp import (
     BrowserPage,
     CdpConnection,
@@ -325,6 +326,48 @@ class CdpTests(unittest.TestCase):
         self.assertIn("visible(el)", expression)
         self.assertIn("!el.disabled", expression)
         self.assertIn("!el.readOnly", expression)
+
+    def test_resolves_control_in_one_named_accessible_frame(self) -> None:
+        cdp = FakeCdp([evaluated(1)])
+        page = BrowserPage(cdp)
+
+        token = page.resolve_document_control(
+            DocumentControlIdentity(
+                "_nav_frame1",
+                ControlIdentity("BUTTON", element_id="export"),
+            )
+        )
+
+        self.assertIsNotNone(token)
+        expression = cdp.calls[0][1]["expression"]  # type: ignore[index]
+        self.assertIn("contentDocument", expression)
+        self.assertIn("_nav_frame1", expression)
+        self.assertNotIn(".src", expression)
+        self.assertIn("!el.disabled", expression)
+        self.assertIn("!el.readOnly", expression)
+
+    def test_document_resolution_requires_exactly_one_match(self) -> None:
+        identity = DocumentControlIdentity(
+            "_nav_frame1", ControlIdentity("BUTTON", element_id="export")
+        )
+        for count in (0, 2):
+            with self.subTest(count=count):
+                page = BrowserPage(FakeCdp([evaluated(count)]))
+                self.assertIsNone(page.resolve_document_control(identity))
+
+    def test_document_resolution_supports_top_without_frame_content_access(self) -> None:
+        cdp = FakeCdp([evaluated(1)])
+
+        token = BrowserPage(cdp).resolve_document_control(
+            DocumentControlIdentity(
+                "top", ControlIdentity("SELECT", element_id="jobtypeselector")
+            )
+        )
+
+        self.assertIsNotNone(token)
+        expression = cdp.calls[0][1]["expression"]  # type: ignore[index]
+        self.assertIn('wanted.frame === "top"', expression)
+        self.assertIn("try", expression)
 
     def test_focus_requires_control_to_become_active_element(self) -> None:
         cdp = FakeCdp([evaluated("focus-failed")])

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from lvms_stat.dom_actions import DomActionError, DomActions
+from lvms_stat.batch_controls import DocumentControlIdentity
+from lvms_stat.dom_actions import DocumentDomActions, DomActionError, DomActions
 from lvms_stat.workflow import ControlIdentity
 
 
@@ -35,6 +36,16 @@ class RecordingPage:
 
     def press_key(self, key: str) -> None:
         self.operations.append(("key", key))
+
+
+class RecordingDocumentPage(RecordingPage):
+    def resolve_document_control(
+        self, identity: DocumentControlIdentity
+    ) -> str | None:
+        self.operations.append(
+            ("resolve_document", identity.frame, identity.control.element_id)
+        )
+        return "safe-token" if self.resolve_count == 1 else None
 
 
 class DomActionTests(unittest.TestCase):
@@ -100,6 +111,39 @@ class DomActionTests(unittest.TestCase):
                 ("key", "ENTER"),
             ],
         )
+
+    def test_document_actions_revalidate_origin_and_use_document_identity(self) -> None:
+        page = RecordingDocumentPage()
+        actions = DocumentDomActions(page, "https://lvms.example.invalid")
+
+        actions.activate(
+            DocumentControlIdentity(
+                "_nav_frame1",
+                ControlIdentity("BUTTON", element_id="export"),
+            )
+        )
+
+        self.assertEqual(
+            page.operations,
+            [
+                ("origin", "https://lvms.example.invalid"),
+                ("resolve_document", "_nav_frame1", "export"),
+                ("activate", "safe-token"),
+            ],
+        )
+
+    def test_document_actions_fail_closed_when_control_is_not_unique(self) -> None:
+        page = RecordingDocumentPage(resolve_count=0)
+        actions = DocumentDomActions(page, "https://lvms.example.invalid")
+
+        with self.assertRaisesRegex(DomActionError, "not uniquely available"):
+            actions.replace_text(
+                DocumentControlIdentity(
+                    "_nav_frame1",
+                    ControlIdentity("INPUT", element_id="analyses"),
+                ),
+                "ANALYSIS-A",
+            )
 
 
 if __name__ == "__main__":

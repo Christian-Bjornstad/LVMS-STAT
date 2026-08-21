@@ -13,6 +13,11 @@ from urllib.parse import urlsplit
 
 import websocket
 
+from lvms_stat.batch_controls import (
+    BatchControlError,
+    DocumentControlIdentity,
+    validate_document_control,
+)
 from lvms_stat.edge import EPHEMERAL_PORT_MAX, EPHEMERAL_PORT_MIN
 from lvms_stat.inspection import (
     CONTROL_INSPECTION_SCRIPT,
@@ -340,13 +345,23 @@ class BrowserPage:
             "locator": list(control.locator),
         }
 
-    def resolve_control(self, control: ControlIdentity) -> str | None:
-        identity = json.dumps(self._control_payload(control), separators=(",", ":"))
+    def resolve_document_control(
+        self, identity: DocumentControlIdentity
+    ) -> str | None:
+        try:
+            validated = validate_document_control(identity)
+        except BatchControlError as exc:
+            raise CdpProtocolError("report document identity is invalid") from exc
+        payload = {
+            "frame": validated.frame,
+            **self._control_payload(validated.control),
+        }
+        serialized_identity = json.dumps(payload, separators=(",", ":"))
         token = secrets.token_hex(16)
         token_json = json.dumps(token)
         expression = rf"""
 (() => {{
-  const wanted = {identity};
+  const wanted = {serialized_identity};
   const clean = (text) => String(text || "").replace(/\s+/g, " ").trim().toLowerCase();
   const locator = (el) => {{
     const parts = [];
@@ -382,7 +397,21 @@ class BrowserPage:
     return style.display !== "none" && style.visibility !== "hidden" &&
       rect.width > 0 && rect.height > 0;
   }};
-  const matches = Array.from(document.querySelectorAll("a,button,input,select,textarea"))
+  let selectedDocument = wanted.frame === "top" ? document : null;
+  if (!selectedDocument) {{
+    const frames = Array.from(document.querySelectorAll("iframe,frame")).filter(
+      (frame) => String(frame.getAttribute("id") || "") === wanted.frame ||
+        String(frame.getAttribute("name") || "") === wanted.frame
+    );
+    if (frames.length !== 1) return 0;
+    try {{
+      selectedDocument = frames[0].contentDocument;
+      if (!selectedDocument || !selectedDocument.documentElement) return 0;
+    }} catch (error) {{
+      return 0;
+    }}
+  }}
+  const matches = Array.from(selectedDocument.querySelectorAll("a,button,input,select,textarea"))
     .filter((el) => visible(el) && !el.disabled && !el.readOnly &&
       el.tagName === wanted.tag &&
       String(el.getAttribute("type") || "").slice(0, 120) === wanted.type &&
@@ -397,6 +426,11 @@ class BrowserPage:
 """
         count = self._evaluate(expression, timeout_seconds=5)
         return token if count == 1 else None
+
+    def resolve_control(self, control: ControlIdentity) -> str | None:
+        return self.resolve_document_control(
+            DocumentControlIdentity("top", control)
+        )
 
     def _use_control(self, token: str, operation: str) -> object:
         if not isinstance(token, str) or len(token) != 32:
