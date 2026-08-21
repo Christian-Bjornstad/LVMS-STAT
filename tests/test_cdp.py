@@ -14,6 +14,7 @@ from lvms_stat.cdp import (
     UnexpectedOriginError,
     discover_page,
 )
+from lvms_stat.workflow import ControlIdentity
 
 
 class FakeSocket:
@@ -276,6 +277,18 @@ class CdpTests(unittest.TestCase):
 
         with self.assertRaisesRegex(CdpProtocolError, "unsupported key"):
             BrowserPage(FakeCdp([])).press_key("DELETE")
+
+    def test_control_resolution_normalizes_labels_like_contract_discovery(self) -> None:
+        cdp = FakeCdp([evaluated(1)])
+
+        token = BrowserPage(cdp).resolve_control(
+            ControlIdentity("SELECT", element_id="report-type", label="report type")
+        )
+
+        self.assertIsNotNone(token)
+        expression = cdp.calls[0][1]["expression"]  # type: ignore[index]
+        self.assertIn("if (aria) return clean(aria);", expression)
+        self.assertIn("return clean(Array.from(el.labels)", expression)
 
 
 if __name__ == "__main__":

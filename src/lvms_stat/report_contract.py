@@ -192,8 +192,11 @@ def _decode(raw: object) -> ReportContract:
     if raw["schema_version"] != 1 or not isinstance(raw["roles"], dict):
         raise ReportContractError("report contract version is invalid")
     converted: dict[str, object] = {}
+    stored_fields = {
+        "tag", "control_type", "element_id", "name", "role", "label", "locator"
+    }
     for role, control in raw["roles"].items():
-        if not isinstance(control, dict):
+        if not isinstance(control, dict) or set(control) != stored_fields:
             raise ReportContractError("report contract control is invalid")
         converted[role] = {
             "tag": control.get("tag"),

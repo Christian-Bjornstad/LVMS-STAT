@@ -98,6 +98,17 @@ class ReportContractTests(unittest.TestCase):
             self.assertNotIn("REPORT-A", text)
             self.assertEqual(load_contract(path, root).export.element_id, "export")
 
+    def test_stored_contract_rejects_unknown_control_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory).resolve()
+            path = save_contract(sanitize_report_contract(payload()), root)
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            raw["roles"]["export"]["unexpected"] = "unsafe"
+            path.write_text(json.dumps(raw), encoding="utf-8")
+
+            with self.assertRaisesRegex(ReportContractError, "control is invalid"):
+                load_contract(path, root)
+
 
 if __name__ == "__main__":
     unittest.main()

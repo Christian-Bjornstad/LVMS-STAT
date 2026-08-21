@@ -354,9 +354,9 @@ class BrowserPage:
   }};
   const label = (el) => {{
     const aria = el.getAttribute("aria-label");
-    if (aria) return String(aria).trim().slice(0, 120);
-    if (el.labels && el.labels.length) return Array.from(el.labels)
-      .map((item) => item.textContent).join(" ").replace(/\s+/g, " ").trim().slice(0, 120);
+    if (aria) return clean(aria);
+    if (el.labels && el.labels.length) return clean(Array.from(el.labels)
+      .map((item) => item.textContent).join(" ")).slice(0, 120);
     return "";
   }};
   const matches = Array.from(document.querySelectorAll("a,button,input,select,textarea"))
