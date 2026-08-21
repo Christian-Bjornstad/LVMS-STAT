@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -19,6 +20,7 @@ from lvms_stat.cdp import (
 )
 from lvms_stat.config import ConfigError, load_config
 from lvms_stat.edge import EdgeLaunchError, EdgeProcess
+from lvms_stat.browser_session import open_owned_browser
 
 
 @dataclass(frozen=True)
@@ -27,6 +29,7 @@ class ProbeDependencies:
     target_wait: Callable[[int], PageTarget]
     connection_open: Callable[[PageTarget], Any]
     page_factory: Callable[[Any], Any]
+    sleeper: Callable[[float], None] = time.sleep
 
 
 class CapabilityCode(StrEnum):
@@ -34,6 +37,7 @@ class CapabilityCode(StrEnum):
     CONFIG_INVALID = "config_invalid"
     EDGE_UNAVAILABLE = "edge_unavailable"
     CDP_UNAVAILABLE = "cdp_unavailable"
+    SSO_TIMEOUT = "sso_timeout"
     UNEXPECTED_ORIGIN = "unexpected_origin"
     PROTOCOL_INVALID = "protocol_invalid"
     CLEANUP_INCOMPLETE = "cleanup_incomplete"
@@ -51,6 +55,7 @@ class CapabilityResult:
             CapabilityCode.CONFIG_INVALID: "LVMS CDP capability: local configuration is invalid.",
             CapabilityCode.EDGE_UNAVAILABLE: "LVMS CDP capability: managed Edge is unavailable.",
             CapabilityCode.CDP_UNAVAILABLE: "LVMS CDP capability: local CDP is unavailable.",
+            CapabilityCode.SSO_TIMEOUT: "LVMS CDP capability: SSO did not return in time.",
             CapabilityCode.UNEXPECTED_ORIGIN: "LVMS CDP capability: the expected origin was not reached.",
             CapabilityCode.PROTOCOL_INVALID: "LVMS CDP capability: Edge returned an invalid response.",
             CapabilityCode.CLEANUP_INCOMPLETE: "LVMS CDP capability: cleanup did not complete.",
@@ -64,6 +69,8 @@ def classify_probe_error(error: Exception | None) -> CapabilityResult:
         code = CapabilityCode.CONFIG_INVALID
     elif isinstance(error, EdgeLaunchError):
         code = CapabilityCode.EDGE_UNAVAILABLE
+    elif isinstance(error, SsoTimeoutError):
+        code = CapabilityCode.SSO_TIMEOUT
     elif isinstance(error, CdpTimeout):
         code = CapabilityCode.CDP_UNAVAILABLE
     elif isinstance(error, UnexpectedOriginError):
@@ -73,12 +80,17 @@ def classify_probe_error(error: Exception | None) -> CapabilityResult:
     return CapabilityResult(code, False)
 
 
+class SsoTimeoutError(CdpTimeout):
+    """SSO navigation did not return to the configured origin in time."""
+
+
 def _default_dependencies() -> ProbeDependencies:
     return ProbeDependencies(
         edge_start=EdgeProcess.start,
         target_wait=wait_for_page_target,
         connection_open=CdpConnection.open,
         page_factory=BrowserPage,
+        sleeper=time.sleep,
     )
 
 
@@ -189,11 +201,20 @@ def run_doctor(
             repository_root=active_repository,
             allowed_profile_root=allowed_profile_root,
         )
-        edge = active_dependencies.edge_start(config.profile_directory)
-        target = active_dependencies.target_wait(edge.port)
+        opened = open_owned_browser(
+            config.profile_directory,
+            edge_start=active_dependencies.edge_start,
+            target_wait=active_dependencies.target_wait,
+            sleeper=active_dependencies.sleeper,
+        )
+        edge = opened.edge
+        target = opened.target
         connection = active_dependencies.connection_open(target)
         page = active_dependencies.page_factory(connection)
-        page.navigate(config.landing_url, config.expected_origin, timeout_seconds=120)
+        try:
+            page.navigate(config.landing_url, config.expected_origin, timeout_seconds=120)
+        except CdpTimeout as exc:
+            raise SsoTimeoutError("SSO navigation timed out") from exc
     except KeyboardInterrupt:
         active_output.write("LVMS CDP capability: cancelled.\n")
         return 130

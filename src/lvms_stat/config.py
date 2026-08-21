@@ -148,6 +148,8 @@ def validate_app_config(
     downloads = _external_directory(raw, "download_directory", repository_root)
     workflows = _external_directory(raw, "workflow_directory", repository_root)
     contracts = _external_directory(raw, "contract_directory", repository_root)
+    if downloads == local or local not in downloads.parents:
+        raise ConfigError("download_directory must be beneath local application data")
     if workflows == local or local not in workflows.parents:
         raise ConfigError("workflow_directory must be beneath local application data")
     if contracts == local or local not in contracts.parents:

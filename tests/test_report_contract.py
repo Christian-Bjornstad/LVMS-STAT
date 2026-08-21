@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from lvms_stat.report_contract import (
+    CONTRACT_DISCOVERY_SCRIPT,
     ReportContractError,
     discover_report_contract,
     load_contract,
@@ -85,6 +86,26 @@ class ReportContractTests(unittest.TestCase):
                 FakePage(payload(), "https://unexpected.invalid"),
                 "https://lvms.example.invalid",
             )
+
+    def test_discovery_never_reads_whole_row_content(self) -> None:
+        self.assertNotIn("row.textContent", CONTRACT_DISCOVERY_SCRIPT)
+        self.assertIn("previousElementSibling", CONTRACT_DISCOVERY_SCRIPT)
+
+    def test_roles_reject_incompatible_control_tags(self) -> None:
+        invalid_selector = payload()
+        invalid_selector["report_type"] = identity("BUTTON", "report-type")
+        invalid_export = payload()
+        invalid_export["export"] = identity("TEXTAREA", "export")
+        hidden_analysis = payload()
+        hidden_analysis["analysis_codes"] = {
+            **identity("INPUT", "analyses"),
+            "type": "hidden",
+        }
+
+        for raw in (invalid_selector, invalid_export, hidden_analysis):
+            with self.subTest(raw=raw):
+                with self.assertRaisesRegex(ReportContractError, "control"):
+                    sanitize_report_contract(raw)
 
     def test_stores_opaque_contract_without_values(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

@@ -221,8 +221,8 @@ class CdpConnection:
         self._closed = True
         try:
             self._socket.close()
-        except Exception:
-            pass
+        except Exception as exc:
+            raise CdpProtocolError("Edge DevTools connection did not close") from exc
 
 
 class BrowserPage:
@@ -354,13 +354,24 @@ class BrowserPage:
   }};
   const label = (el) => {{
     const aria = el.getAttribute("aria-label");
-    if (aria) return clean(aria);
+    if (aria) return clean(aria).slice(0, 120);
     if (el.labels && el.labels.length) return clean(Array.from(el.labels)
       .map((item) => item.textContent).join(" ")).slice(0, 120);
+    const container = el.closest("td,th,[role='cell'],[role='gridcell']");
+    const previous = container ? container.previousElementSibling : null;
+    if (previous && !previous.querySelector("input,select,textarea,button,a"))
+      return clean(previous.textContent).slice(0, 120);
     return "";
   }};
+  const visible = (el) => {{
+    const style = el.ownerDocument.defaultView.getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    return style.display !== "none" && style.visibility !== "hidden" &&
+      rect.width > 0 && rect.height > 0;
+  }};
   const matches = Array.from(document.querySelectorAll("a,button,input,select,textarea"))
-    .filter((el) => el.tagName === wanted.tag &&
+    .filter((el) => visible(el) && !el.disabled && !el.readOnly &&
+      el.tagName === wanted.tag &&
       String(el.getAttribute("type") || "").slice(0, 120) === wanted.type &&
       String(el.getAttribute("id") || "").slice(0, 120) === wanted.id &&
       String(el.getAttribute("name") || "").slice(0, 120) === wanted.name &&
@@ -389,7 +400,10 @@ class BrowserPage:
         return self._evaluate(expression, timeout_seconds=5)
 
     def focus_control(self, token: str) -> None:
-        if self._use_control(token, 'control.focus(); return "ok";') != "ok":
+        if self._use_control(
+            token,
+            'control.focus(); return document.activeElement === control ? "ok" : "focus-failed";',
+        ) != "ok":
             raise CdpProtocolError("report control is no longer available")
 
     def activate_control(self, token: str) -> None:

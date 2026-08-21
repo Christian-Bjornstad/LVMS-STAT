@@ -153,6 +153,67 @@ class ProbeTests(unittest.TestCase):
         self.assertTrue(edge.closed)
         self.assertTrue(connection.closed)
 
+    def test_doctor_retries_transient_target_startup(self) -> None:
+        first = FakeEdge()
+        second = FakeEdge()
+        edges = iter((first, second))
+        attempts = {"count": 0}
+        connection = FakeConnection()
+        page = FakePage(PageIdentity("https://lvms.example.invalid", "LVMS"))
+
+        def target_wait(port: int) -> PageTarget:
+            del port
+            attempts["count"] += 1
+            if attempts["count"] == 1:
+                raise CdpTimeout("transient")
+            return PageTarget(
+                "page", "ws://127.0.0.1:49152/devtools/page/page", 49152
+            )
+
+        dependencies = ProbeDependencies(
+            edge_start=lambda profile: next(edges),
+            target_wait=target_wait,
+            connection_open=lambda target: connection,
+            page_factory=lambda active: page,
+            sleeper=lambda seconds: None,
+        )
+
+        result = run_doctor(
+            self.config_path,
+            dependencies=dependencies,
+            output=io.StringIO(),
+            repository_root=self.repository_root,
+            allowed_profile_root=self.local_app_data,
+        )
+
+        self.assertEqual(result, 0)
+        self.assertTrue(first.closed)
+        self.assertTrue(second.closed)
+        self.assertEqual(attempts["count"], 2)
+
+    def test_doctor_classifies_navigation_timeout_as_sso_timeout(self) -> None:
+        class TimeoutPage(FakePage):
+            def navigate(self, *args: object, **kwargs: object) -> PageIdentity:
+                raise CdpTimeout("private redirect detail")
+
+        page = TimeoutPage(PageIdentity("https://lvms.example.invalid", "LVMS"))
+        dependencies, _, _ = self.dependencies(page=page)
+        output = io.StringIO()
+
+        result = run_doctor(
+            self.config_path,
+            dependencies=dependencies,
+            output=output,
+            repository_root=self.repository_root,
+            allowed_profile_root=self.local_app_data,
+        )
+
+        self.assertEqual(result, 2)
+        self.assertEqual(
+            output.getvalue(), "LVMS CDP capability: SSO did not return in time.\n"
+        )
+        self.assertNotIn("private redirect", output.getvalue())
+
     def test_failure_is_sanitized_and_always_closes_child_edge(self) -> None:
         page = FakePage(PageIdentity("https://lvms.example.invalid", "LVMS"))
         dependencies, edge, connection = self.dependencies(

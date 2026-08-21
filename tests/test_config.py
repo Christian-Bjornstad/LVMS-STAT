@@ -96,9 +96,8 @@ class ConfigTests(unittest.TestCase):
 
     def test_accepts_safe_recorder_directories(self) -> None:
         local = self.temp_root / "local-app-data"
-        downloads = self.temp_root / "downloads"
         local.mkdir()
-        downloads.mkdir()
+        downloads = local / "LVMS-STAT" / "downloads"
         raw = {
             "landing_url": "https://lvms.example.invalid/",
             "profile_directory": str(local / "LVMS-STAT" / "edge-profile"),
@@ -134,6 +133,7 @@ class ConfigTests(unittest.TestCase):
         invalid = (
             {**base, "download_directory": "relative/downloads"},
             {**base, "download_directory": str(self.repo_root / "downloads")},
+            {**base, "download_directory": str(self.temp_root / "shared-downloads")},
             {**base, "workflow_directory": str(self.temp_root / "shared")},
             {**base, "workflow_directory": str(local)},
         )

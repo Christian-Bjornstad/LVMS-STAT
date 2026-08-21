@@ -287,8 +287,31 @@ class CdpTests(unittest.TestCase):
 
         self.assertIsNotNone(token)
         expression = cdp.calls[0][1]["expression"]  # type: ignore[index]
-        self.assertIn("if (aria) return clean(aria);", expression)
+        self.assertIn("if (aria) return clean(aria).slice(0, 120);", expression)
         self.assertIn("return clean(Array.from(el.labels)", expression)
+        self.assertIn("previousElementSibling", expression)
+        self.assertIn("visible(el)", expression)
+        self.assertIn("!el.disabled", expression)
+        self.assertIn("!el.readOnly", expression)
+
+    def test_focus_requires_control_to_become_active_element(self) -> None:
+        cdp = FakeCdp([evaluated("focus-failed")])
+
+        with self.assertRaisesRegex(CdpProtocolError, "no longer available"):
+            BrowserPage(cdp).focus_control("a" * 32)
+
+        expression = cdp.calls[0][1]["expression"]  # type: ignore[index]
+        self.assertIn("document.activeElement", expression)
+
+    def test_connection_close_surfaces_sanitized_failure(self) -> None:
+        class BrokenCloseSocket(FakeSocket):
+            def close(self) -> None:
+                raise OSError("private socket detail")
+
+        connection = CdpConnection(BrokenCloseSocket([]))
+        with self.assertRaisesRegex(CdpProtocolError, "did not close") as caught:
+            connection.close()
+        self.assertNotIn("private socket detail", str(caught.exception))
 
 
 if __name__ == "__main__":

@@ -36,6 +36,7 @@ class CsvArrivalDetector:
         self._directory = directory.resolve()
         self._baseline: dict[Path, FileStamp] = {}
         self._temporary_baseline: set[Path] = set()
+        self._entry_baseline: set[Path] = set()
         self._pending: tuple[Path, FileStamp] | None = None
         self._detected: Path | None = None
         self._started = False
@@ -61,9 +62,16 @@ class CsvArrivalDetector:
         except OSError as exc:
             raise DownloadError("download directory is unavailable") from exc
 
+    def _scan_files(self) -> set[Path]:
+        try:
+            return {item.resolve() for item in self._directory.iterdir() if item.is_file()}
+        except OSError as exc:
+            raise DownloadError("download directory is unavailable") from exc
+
     def start(self) -> None:
         self._baseline = self._scan()
         self._temporary_baseline = self._scan_temporary()
+        self._entry_baseline = self._scan_files()
         self._pending = None
         self._detected = None
         self._started = True
@@ -80,6 +88,14 @@ class CsvArrivalDetector:
         if self._scan_temporary() - self._temporary_baseline:
             self._pending = None
             return DownloadStatus.WAITING
+        unexpected = {
+            path
+            for path in self._scan_files() - self._entry_baseline
+            if path.suffix.lower() != ".csv"
+        }
+        if unexpected:
+            self._pending = None
+            return DownloadStatus.AMBIGUOUS
         current = self._scan()
         new_files = {path: stamp for path, stamp in current.items() if path not in self._baseline}
         if len(new_files) > 1:

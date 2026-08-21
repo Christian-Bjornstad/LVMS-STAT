@@ -71,12 +71,16 @@ CONTRACT_DISCOVERY_SCRIPT = r"""
   };
   const labelText = (el) => {
     const aria = el.getAttribute("aria-label");
-    if (aria) return clean(aria);
+    if (aria) return clean(aria).slice(0, 120);
     if (el.labels && el.labels.length) {
-      return clean(Array.from(el.labels).map((item) => item.textContent).join(" "));
+      return clean(Array.from(el.labels).map((item) => item.textContent).join(" ")).slice(0, 120);
     }
-    const row = el.closest("tr,[role='row']");
-    return row ? clean(row.textContent) : "";
+    const container = el.closest("td,th,[role='cell'],[role='gridcell']");
+    const previous = container ? container.previousElementSibling : null;
+    if (previous && !previous.querySelector("input,select,textarea,button,a")) {
+      return clean(previous.textContent).slice(0, 120);
+    }
+    return "";
   };
   const identity = (el) => ({
     tag: String(el.tagName || "").slice(0, 120),
@@ -154,6 +158,30 @@ def sanitize_report_contract(raw: object) -> ReportContract:
     if not isinstance(raw, Mapping) or set(raw) != CONTRACT_ROLES:
         raise ReportContractError("report contract roles are invalid")
     controls = {role: _control(raw[role]) for role in CONTRACT_ROLES}
+    role_tags = {
+        "report_type": {"INPUT", "SELECT"},
+        "category": {"INPUT", "SELECT"},
+        "report_id": {"INPUT", "SELECT"},
+        "analysis_codes": {"INPUT", "TEXTAREA"},
+        "created_from": {"INPUT"},
+        "created_to": {"INPUT"},
+        "export": {"A", "BUTTON", "INPUT"},
+    }
+    if any(controls[role].tag not in tags for role, tags in role_tags.items()):
+        raise ReportContractError("report role control is invalid")
+    input_roles = {
+        "report_type", "category", "report_id", "analysis_codes",
+        "created_from", "created_to",
+    }
+    if any(
+        controls[role].tag == "INPUT"
+        and controls[role].control_type in {"hidden", "password", "button", "submit", "image"}
+        for role in input_roles
+    ):
+        raise ReportContractError("report role control is invalid")
+    export = controls["export"]
+    if export.tag == "INPUT" and export.control_type not in {"button", "submit", "image"}:
+        raise ReportContractError("report role control is invalid")
     identities = [
         (item.tag, item.element_id, item.name, item.locator)
         for item in controls.values()

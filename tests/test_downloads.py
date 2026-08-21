@@ -74,6 +74,14 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(detector.poll(), DownloadStatus.WAITING)
         self.assertEqual(detector.poll(), DownloadStatus.DETECTED)
 
+    def test_rejects_unexpected_non_csv_file(self) -> None:
+        detector = CsvArrivalDetector(self.root)
+        detector.start()
+        (self.root / "unexpected.pdf").write_bytes(b"not a report csv")
+        (self.root / "report.csv").write_bytes(b"synthetic")
+
+        self.assertEqual(detector.poll(), DownloadStatus.AMBIGUOUS)
+
 
 if __name__ == "__main__":
     unittest.main()

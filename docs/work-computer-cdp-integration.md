@@ -6,7 +6,7 @@ Use only the organisation-controlled work computer and your normal authorised ac
 
 ## Local preparation
 
-Copy `config.example.json` to the ignored `config.json` and `jobs.example.json` to the ignored `jobs.json`. Replace only the placeholders locally. Use a clean HTTPS landing URL without credentials, query string, fragment, session data, or a generated download URL. All local directories must be absolute and outside the repository.
+Copy `config.example.json` to the ignored `config.json` and `jobs.example.json` to the ignored `jobs.json`. Replace only the placeholders locally. Use a clean HTTPS landing URL without credentials, query string, fragment, session data, or a generated download URL. All local directories must be absolute and outside the repository. The download directory must be a dedicated LVMS-STAT inbox beneath Local AppData, not the normal shared Downloads folder.
 
 Before continuing:
 
@@ -89,6 +89,7 @@ Confirm in File Explorer that one completed `.csv` exists in `download_directory
 | `config_invalid` | Correct only the ignored local paths/clean landing URL. |
 | `edge_unavailable` | Stop and ask IT whether managed Edge launch is available to Python FELLES. |
 | `cdp_unavailable` | Stop and ask IT whether approved local Edge debugging is permitted. |
+| `sso_timeout` | Stop; confirm normal SSO works in the visible owned Edge window. |
 | `unexpected_origin` | Stop; verify only the clean configured landing origin locally. |
 | `protocol_invalid` | Stop and retain only the fixed category message for troubleshooting. |
 | `cleanup_incomplete` | Close the LVMS-STAT-owned Edge window manually, then stop. |
