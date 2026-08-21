@@ -103,8 +103,9 @@ DEFINED_REPORTS_PAGE_SCRIPT = (
     "select#jobtypeselector[name='jobtypeselector']"
   )).filter(visible);
   const frames = Array.from(document.querySelectorAll("iframe,frame")).filter(
-    (frame) => frame.getAttribute("id") === "_nav_frame1" ||
-      frame.getAttribute("name") === "_nav_frame1"
+    (frame) => visible(frame) &&
+      (frame.getAttribute("id") === "_nav_frame1" ||
+        frame.getAttribute("name") === "_nav_frame1")
   );
   if (jobTypes.length !== 1 || frames.length !== 1) return null;
   let frameDocument = null;

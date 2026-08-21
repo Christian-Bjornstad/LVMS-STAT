@@ -177,6 +177,7 @@ class BatchFormTests(unittest.TestCase):
                     "sessionStorage",
                 ):
                     self.assertNotIn(forbidden, script)
+                self.assertIn("if (!visible(frame)) continue;", script)
 
     def test_role_discovery_rejects_unknown_absent_or_wrong_origin(self) -> None:
         with self.assertRaises(BatchFormError):

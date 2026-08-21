@@ -117,6 +117,7 @@ def _role_script(role: str) -> str:
   }});
   const documents = [{{frame: "top", document}}];
   for (const frame of document.querySelectorAll("iframe,frame")) {{
+    if (!visible(frame)) continue;
     const frameName = String(
       frame.getAttribute("name") || frame.getAttribute("id") || ""
     ).trim();

@@ -142,6 +142,7 @@ class BatchNavigationTests(unittest.TestCase):
         expression = page.expressions[0]
         self.assertNotIn(".src", expression)
         self.assertNotIn(".value", expression)
+        self.assertIn("visible(frame)", expression)
 
     def test_page_rejects_absent_or_wrong_origin_contract(self) -> None:
         self.assertIsNone(

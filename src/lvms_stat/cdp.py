@@ -400,8 +400,9 @@ class BrowserPage:
   let selectedDocument = wanted.frame === "top" ? document : null;
   if (!selectedDocument) {{
     const frames = Array.from(document.querySelectorAll("iframe,frame")).filter(
-      (frame) => String(frame.getAttribute("id") || "") === wanted.frame ||
-        String(frame.getAttribute("name") || "") === wanted.frame
+      (frame) => visible(frame) &&
+        (String(frame.getAttribute("id") || "") === wanted.frame ||
+          String(frame.getAttribute("name") || "") === wanted.frame)
     );
     if (frames.length !== 1) return 0;
     try {{

@@ -343,6 +343,7 @@ class CdpTests(unittest.TestCase):
         self.assertIn("contentDocument", expression)
         self.assertIn("_nav_frame1", expression)
         self.assertNotIn(".src", expression)
+        self.assertIn("visible(frame)", expression)
         self.assertIn("!el.disabled", expression)
         self.assertIn("!el.readOnly", expression)
 
