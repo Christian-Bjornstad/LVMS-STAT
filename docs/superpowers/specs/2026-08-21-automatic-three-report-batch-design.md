@@ -131,6 +131,8 @@ The form is dynamic, so fields are resolved only when their stage is active:
 
 Dynamic controls are found through narrow structural metadata and exact safe field-label aliases. A role must resolve to exactly one role-compatible control. Missing or multiple matches stop the batch.
 
+LVMS may use ordinary HTML tables for form layout. A control inside such a layout table is eligible only when its own native/ARIA label or one narrow preceding label cell exactly matches an allowlisted field alias. Controls inside semantic grids/treegrids or any patient-, sample-, or result-marked ancestor are excluded. No table rows, cell values, or report data are returned.
+
 Native selectors require exactly one option-text match. Custom selectors are focused, replaced through CDP input, and confirmed with Enter. No fuzzy or partial option match is allowed.
 
 ### 5. Batch orchestrator

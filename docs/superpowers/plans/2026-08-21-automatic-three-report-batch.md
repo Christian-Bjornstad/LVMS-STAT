@@ -353,7 +353,7 @@ def test_discovers_one_role_across_top_and_named_frames(role, expected_id):
     assert result.control.element_id == expected_id
 ```
 
-Add tests rejecting unknown roles, zero/multiple matches, cross-origin frames, table/grid controls, hidden controls, incompatible input types, and unexpected origin. Assert that the discovery script contains none of `.value`, `.src`, `.href`, `document.cookie`, `localStorage`, or `sessionStorage`.
+Add tests rejecting unknown roles, zero/multiple matches, cross-origin frames, semantic grid/treegrid controls, patient/sample/result-marked table ancestors, hidden controls, incompatible input types, and unexpected origin. Ordinary HTML layout tables remain eligible only through an exact allowlisted native/ARIA label or narrow preceding label cell. Assert that the discovery script contains none of `.value`, `.src`, `.href`, `document.cookie`, `localStorage`, or `sessionStorage`.
 
 - [ ] **Step 2: Run and verify RED**
 
