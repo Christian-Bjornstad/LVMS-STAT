@@ -4,6 +4,7 @@ import argparse
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from lvms_stat.batch_runner import run_report_batch
 from lvms_stat.probe import run_doctor, run_probe
 from lvms_stat.report_runner import discover_report, run_report_job
 from lvms_stat.tk_app import run_app
@@ -43,6 +44,15 @@ def build_parser() -> argparse.ArgumentParser:
     run_parser.add_argument("--contract", type=Path, required=True)
     run_parser.add_argument("--job", dest="job_key", required=True)
 
+    batch_parser = subcommands.add_parser(
+        "run-batch", help="Automatically export three explicit local report jobs."
+    )
+    batch_parser.add_argument("--config", type=Path, required=True)
+    batch_parser.add_argument("--jobs", type=Path, required=True)
+    batch_parser.add_argument(
+        "--job", dest="job_keys", action="append", required=True
+    )
+
     return parser
 
 
@@ -54,6 +64,7 @@ def main(
     app_runner: Callable[[Path], int] = run_app,
     discover_runner: Callable[[Path], int] = discover_report,
     report_runner: Callable[[Path, Path, Path, str], int] = run_report_job,
+    batch_runner: Callable[[Path, Path, tuple[str, ...]], int] = run_report_batch,
 ) -> int:
     arguments = build_parser().parse_args(argv)
     if arguments.command == "doctor":
@@ -65,6 +76,10 @@ def main(
     if arguments.command == "run-job":
         return report_runner(
             arguments.config, arguments.jobs, arguments.contract, arguments.job_key
+        )
+    if arguments.command == "run-batch":
+        return batch_runner(
+            arguments.config, arguments.jobs, tuple(arguments.job_keys)
         )
     return probe_runner(arguments.config, inspect=arguments.command == "inspect")
 

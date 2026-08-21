@@ -1,14 +1,34 @@
 {
   "jobs": [
     {
-      "job_key": "synthetic_ordered",
+      "job_key": "ordered",
       "report_type": "TYPE_A",
       "category": "CATEGORY_A",
-      "report_id": "REPORT-A",
-      "analysis_codes": ["ANALYSIS-A", "ANALYSIS-B"],
-      "created_from": "01.01.2026",
-      "created_to": "21.08.2026",
-      "output_stem": "synthetic_ordered"
+      "report_id": "REPORT-ORDERED",
+      "analysis_codes": ["ANALYSIS-ORDERED"],
+      "created_from": "01.08.2026",
+      "created_to": "07.08.2026",
+      "output_stem": "ordered"
+    },
+    {
+      "job_key": "answered",
+      "report_type": "TYPE_A",
+      "category": "CATEGORY_A",
+      "report_id": "REPORT-ANSWERED",
+      "analysis_codes": ["ANALYSIS-ANSWERED"],
+      "created_from": "01.08.2026",
+      "created_to": "07.08.2026",
+      "output_stem": "answered"
+    },
+    {
+      "job_key": "extraction",
+      "report_type": "TYPE_A",
+      "category": "CATEGORY_A",
+      "report_id": "REPORT-EXTRACTION",
+      "analysis_codes": ["ANALYSIS-EXTRACTION"],
+      "created_from": "01.08.2026",
+      "created_to": "07.08.2026",
+      "output_stem": "extraction"
     }
   ]
 }

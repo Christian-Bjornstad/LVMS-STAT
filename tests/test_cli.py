@@ -80,6 +80,41 @@ class CliTests(unittest.TestCase):
             [(Path("safe.json"), Path("jobs.json"), Path("contract.json"), "weekly")],
         )
 
+    def test_run_batch_dispatches_three_repeatable_job_keys_in_order(self) -> None:
+        calls: list[tuple[Path, Path, tuple[str, ...]]] = []
+
+        result = main(
+            [
+                "run-batch",
+                "--config",
+                "config.json",
+                "--jobs",
+                "jobs.json",
+                "--job",
+                "ordered",
+                "--job",
+                "answered",
+                "--job",
+                "extraction",
+            ],
+            batch_runner=lambda config, jobs, keys: calls.append(
+                (config, jobs, keys)
+            )
+            or 7,
+        )
+
+        self.assertEqual(result, 7)
+        self.assertEqual(
+            calls,
+            [
+                (
+                    Path("config.json"),
+                    Path("jobs.json"),
+                    ("ordered", "answered", "extraction"),
+                )
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
