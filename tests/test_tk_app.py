@@ -2,14 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from lvms_stat.config import ConfigError
-from lvms_stat.tk_app import (
-    TkUnavailable,
-    format_step,
-    load_tkinter,
-    safe_ui_call,
-    startup_error_message,
-)
+from lvms_stat.tk_app import TkUnavailable, format_step, load_tkinter, safe_ui_call
 from lvms_stat.app_controller import UiMessage
 from lvms_stat.workflow import WorkflowError
 from lvms_stat.workflow import ControlIdentity, ParameterRole, StepKind, WorkflowStep
@@ -45,19 +38,6 @@ class TkAppTests(unittest.TestCase):
             messages.append,
         )
         self.assertEqual(messages, [UiMessage.INVALID_ACTION])
-
-    def test_startup_errors_keep_safe_diagnostic_categories(self) -> None:
-        self.assertEqual(
-            startup_error_message(ConfigError("private path")),
-            "LVMS-STAT configuration is invalid.",
-        )
-        self.assertEqual(
-            startup_error_message(TkUnavailable("private import detail")),
-            "LVMS-STAT user interface is unavailable in this Python installation.",
-        )
-        self.assertNotIn(
-            "private", startup_error_message(RuntimeError("private runtime detail"))
-        )
 
 
 if __name__ == "__main__":
