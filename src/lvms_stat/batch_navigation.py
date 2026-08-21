@@ -1,0 +1,259 @@
+from __future__ import annotations
+
+import json
+import time
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from typing import Protocol
+
+from lvms_stat.batch_controls import (
+    BatchControlError,
+    DocumentControlIdentity,
+    sanitize_document_control,
+)
+
+
+class BatchNavigationError(RuntimeError):
+    """The Defined Reports page could not be reached safely."""
+
+
+DEFINED_REPORTS_LABEL = "Definerte rapporter"
+REPORTS_SECTION_LABEL = "Eksterne rapporter"
+_NAVIGATION_LABELS = frozenset({DEFINED_REPORTS_LABEL, REPORTS_SECTION_LABEL})
+
+
+class SafePage(Protocol):
+    def current_origin(self) -> str: ...
+
+    def evaluate_safe(
+        self, expression: str, *, timeout_seconds: float = 2
+    ) -> object: ...
+
+
+class NavigationActions(Protocol):
+    def activate(self, identity: DocumentControlIdentity) -> None: ...
+
+
+@dataclass(frozen=True)
+class DefinedReportsPage:
+    job_type: DocumentControlIdentity
+    clear: DocumentControlIdentity
+    export: DocumentControlIdentity
+
+
+_IDENTITY_SCRIPT = r"""
+  const clean = (text) => String(text || "").replace(/\s+/g, " ").trim().toLowerCase();
+  const visible = (el) => {
+    const style = el.ownerDocument.defaultView.getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    return style.display !== "none" && style.visibility !== "hidden" &&
+      rect.width > 0 && rect.height > 0 && !el.disabled && !el.readOnly;
+  };
+  const locator = (el) => {
+    const parts = [];
+    let node = el;
+    while (node && node.nodeType === 1 && parts.length < 12) {
+      let part = clean(node.tagName);
+      const id = String(node.getAttribute("id") || "").trim();
+      const name = String(node.getAttribute("name") || "").trim();
+      if (id) part += "#" + id;
+      else if (name) part += "[name=" + name + "]";
+      else if (node.parentElement) part += ":nth-child(" +
+        (Array.from(node.parentElement.children).indexOf(node) + 1) + ")";
+      parts.unshift(part.slice(0, 120));
+      if (id) break;
+      node = node.parentElement;
+    }
+    return parts;
+  };
+  const label = (el) => {
+    const aria = el.getAttribute("aria-label");
+    if (aria) return clean(aria).slice(0, 120);
+    if (el.labels && el.labels.length) return clean(Array.from(el.labels)
+      .map((item) => item.textContent).join(" ")).slice(0, 120);
+    const container = el.closest("td,th,[role='cell'],[role='gridcell']");
+    const previous = container ? container.previousElementSibling : null;
+    if (previous && !previous.querySelector("input,select,textarea,button,a"))
+      return clean(previous.textContent).slice(0, 120);
+    return "";
+  };
+  const identity = (el, frame) => ({
+    frame,
+    control: {
+      tag: String(el.tagName || "").slice(0, 120),
+      type: String(el.getAttribute("type") || "").trim().toLowerCase().slice(0, 120),
+      id: String(el.getAttribute("id") || "").trim().slice(0, 120),
+      name: String(el.getAttribute("name") || "").trim().slice(0, 120),
+      role: String(el.getAttribute("role") || "").trim().slice(0, 120),
+      label: label(el),
+      locator: locator(el)
+    }
+  });
+"""
+
+
+DEFINED_REPORTS_PAGE_SCRIPT = (
+    r"""
+(() => {
+  /* LVMS_DEFINED_REPORTS_PAGE */
+"""
+    + _IDENTITY_SCRIPT
+    + r"""
+  const jobTypes = Array.from(document.querySelectorAll(
+    "select#jobtypeselector[name='jobtypeselector']"
+  )).filter(visible);
+  const frames = Array.from(document.querySelectorAll("iframe,frame")).filter(
+    (frame) => frame.getAttribute("id") === "_nav_frame1" ||
+      frame.getAttribute("name") === "_nav_frame1"
+  );
+  if (jobTypes.length !== 1 || frames.length !== 1) return null;
+  let frameDocument = null;
+  try {
+    frameDocument = frames[0].contentDocument;
+    if (!frameDocument || !frameDocument.documentElement) return null;
+  } catch (error) {
+    return null;
+  }
+  const clears = Array.from(frameDocument.querySelectorAll(
+    "button#clear[name='menu'][type='button']"
+  )).filter(visible);
+  const exports = Array.from(frameDocument.querySelectorAll(
+    "button#export[name='menu'][type='button']"
+  )).filter(visible);
+  if (clears.length !== 1 || exports.length !== 1) return null;
+  return {
+    job_type: identity(jobTypes[0], "top"),
+    clear: identity(clears[0], "_nav_frame1"),
+    export: identity(exports[0], "_nav_frame1")
+  };
+})()
+"""
+).strip()
+
+
+def _navigation_anchor_script(label: str) -> str:
+    encoded_label = json.dumps(label)
+    return (
+        r"""
+(() => {
+  /* LVMS_NAVIGATION_ANCHOR */
+"""
+        + _IDENTITY_SCRIPT
+        + f"""
+  const wanted = {encoded_label};
+  const matches = Array.from(document.querySelectorAll("a"))
+    .filter((anchor) => visible(anchor) &&
+      String(anchor.textContent || "").replace(/\\s+/g, " ").trim() === wanted);
+  return matches.length === 1 ? identity(matches[0], "top") : null;
+}})()
+"""
+    ).strip()
+
+
+def _require_origin(page: SafePage, expected_origin: str) -> None:
+    if page.current_origin() != expected_origin:
+        raise BatchNavigationError("Edge reached an unexpected origin")
+
+
+def _document(raw: object) -> DocumentControlIdentity:
+    try:
+        return sanitize_document_control(raw)
+    except BatchControlError as exc:
+        raise BatchNavigationError("Defined Reports metadata is invalid") from exc
+
+
+def discover_defined_reports_page(
+    page: SafePage, expected_origin: str
+) -> DefinedReportsPage | None:
+    _require_origin(page, expected_origin)
+    raw = page.evaluate_safe(DEFINED_REPORTS_PAGE_SCRIPT, timeout_seconds=10)
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping) or set(raw) != {"job_type", "clear", "export"}:
+        raise BatchNavigationError("Defined Reports metadata is invalid")
+    job_type = _document(raw["job_type"])
+    clear = _document(raw["clear"])
+    export = _document(raw["export"])
+    if (
+        job_type.frame != "top"
+        or job_type.control.tag != "SELECT"
+        or job_type.control.element_id != "jobtypeselector"
+        or job_type.control.name != "jobtypeselector"
+        or clear.frame != "_nav_frame1"
+        or clear.control.tag != "BUTTON"
+        or clear.control.control_type != "button"
+        or clear.control.element_id != "clear"
+        or clear.control.name != "menu"
+        or export.frame != "_nav_frame1"
+        or export.control.tag != "BUTTON"
+        or export.control.control_type != "button"
+        or export.control.element_id != "export"
+        or export.control.name != "menu"
+    ):
+        raise BatchNavigationError("Defined Reports structure is invalid")
+    return DefinedReportsPage(job_type, clear, export)
+
+
+def discover_navigation_anchor(
+    page: SafePage, expected_origin: str, label: str
+) -> DocumentControlIdentity | None:
+    if label not in _NAVIGATION_LABELS:
+        raise BatchNavigationError("navigation label is not allowed")
+    _require_origin(page, expected_origin)
+    raw = page.evaluate_safe(_navigation_anchor_script(label), timeout_seconds=5)
+    if raw is None:
+        return None
+    identity = _document(raw)
+    if identity.frame != "top" or identity.control.tag != "A":
+        raise BatchNavigationError("navigation control is invalid")
+    return identity
+
+
+class DefinedReportsNavigator:
+    def __init__(
+        self,
+        expected_origin: str,
+        *,
+        timeout_seconds: float = 20,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        if timeout_seconds <= 0:
+            raise BatchNavigationError("navigation timeout is invalid")
+        self._expected_origin = expected_origin
+        self._timeout_seconds = timeout_seconds
+        self._clock = clock
+        self._sleep = sleep
+
+    def reach(
+        self, page: SafePage, actions: NavigationActions
+    ) -> DefinedReportsPage:
+        deadline = self._clock() + self._timeout_seconds
+        used_section = False
+        used_defined_reports = False
+        while self._clock() < deadline:
+            contract = discover_defined_reports_page(page, self._expected_origin)
+            if contract is not None:
+                return contract
+            if not used_defined_reports:
+                anchor = discover_navigation_anchor(
+                    page, self._expected_origin, DEFINED_REPORTS_LABEL
+                )
+                if anchor is not None:
+                    actions.activate(anchor)
+                    used_defined_reports = True
+                    _require_origin(page, self._expected_origin)
+                    self._sleep(0.1)
+                    continue
+            if not used_section:
+                anchor = discover_navigation_anchor(
+                    page, self._expected_origin, REPORTS_SECTION_LABEL
+                )
+                if anchor is not None:
+                    actions.activate(anchor)
+                    used_section = True
+                    _require_origin(page, self._expected_origin)
+                    self._sleep(0.1)
+                    continue
+            self._sleep(0.1)
+        raise BatchNavigationError("Defined Reports navigation timed out")
