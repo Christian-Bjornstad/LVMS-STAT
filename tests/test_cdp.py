@@ -258,6 +258,25 @@ class CdpTests(unittest.TestCase):
         with self.assertRaisesRegex(CdpProtocolError, "absolute"):
             BrowserPage(FakeCdp([])).configure_downloads(Path("relative"))
 
+    def test_insert_text_uses_cdp_input_without_evaluating_page_content(self) -> None:
+        cdp = FakeCdp([{}])
+        page = BrowserPage(cdp)
+
+        page.insert_text("ANALYSIS-A")
+
+        self.assertEqual(cdp.calls, [("Input.insertText", {"text": "ANALYSIS-A"})])
+
+    def test_press_key_is_limited_to_enter_and_tab(self) -> None:
+        for key in ("ENTER", "TAB"):
+            with self.subTest(key=key):
+                cdp = FakeCdp([{}, {}])
+                BrowserPage(cdp).press_key(key)
+                self.assertEqual(cdp.calls[0][0], "Input.dispatchKeyEvent")
+                self.assertEqual(cdp.calls[1][0], "Input.dispatchKeyEvent")
+
+        with self.assertRaisesRegex(CdpProtocolError, "unsupported key"):
+            BrowserPage(FakeCdp([])).press_key("DELETE")
+
 
 if __name__ == "__main__":
     unittest.main()

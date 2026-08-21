@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 import time
 import urllib.error
 import urllib.request
@@ -17,6 +18,7 @@ from lvms_stat.inspection import (
     InspectionError,
     sanitize_controls,
 )
+from lvms_stat.workflow import ControlIdentity
 
 
 MAX_DISCOVERY_BYTES = 64 * 1024
@@ -264,6 +266,175 @@ class BrowserPage:
             {"behavior": "allow", "downloadPath": str(resolved)},
             timeout_seconds=5,
         )
+
+    @staticmethod
+    def _validate_text(text: str, *, maximum: int = 50_000) -> None:
+        if not isinstance(text, str) or len(text) > maximum or "\x00" in text:
+            raise CdpProtocolError("input text is invalid")
+
+    def insert_text(self, text: str) -> None:
+        self._validate_text(text)
+        self._connection.call(
+            "Input.insertText", {"text": text}, timeout_seconds=5
+        )
+
+    def press_key(self, key: str) -> None:
+        keys = {
+            "ENTER": ("Enter", "Enter", 13),
+            "TAB": ("Tab", "Tab", 9),
+        }
+        if key not in keys:
+            raise CdpProtocolError("unsupported key")
+        key_name, code, windows_code = keys[key]
+        common: dict[str, object] = {
+            "key": key_name,
+            "code": code,
+            "windowsVirtualKeyCode": windows_code,
+            "nativeVirtualKeyCode": windows_code,
+        }
+        self._connection.call(
+            "Input.dispatchKeyEvent", {"type": "rawKeyDown", **common}, timeout_seconds=5
+        )
+        self._connection.call(
+            "Input.dispatchKeyEvent", {"type": "keyUp", **common}, timeout_seconds=5
+        )
+
+    @staticmethod
+    def _control_payload(control: ControlIdentity) -> dict[str, object]:
+        values = (
+            control.tag,
+            control.control_type,
+            control.element_id,
+            control.name,
+            control.role,
+            control.label,
+        )
+        if (
+            not control.tag
+            or any(not isinstance(value, str) or len(value) > 120 for value in values)
+            or not isinstance(control.locator, tuple)
+            or len(control.locator) > 12
+            or any(not isinstance(part, str) or len(part) > 120 for part in control.locator)
+        ):
+            raise CdpProtocolError("report control identity is invalid")
+        return {
+            "tag": control.tag,
+            "type": control.control_type,
+            "id": control.element_id,
+            "name": control.name,
+            "role": control.role,
+            "label": control.label,
+            "locator": list(control.locator),
+        }
+
+    def resolve_control(self, control: ControlIdentity) -> str | None:
+        identity = json.dumps(self._control_payload(control), separators=(",", ":"))
+        token = secrets.token_hex(16)
+        token_json = json.dumps(token)
+        expression = rf"""
+(() => {{
+  const wanted = {identity};
+  const clean = (text) => String(text || "").replace(/\s+/g, " ").trim().toLowerCase();
+  const locator = (el) => {{
+    const parts = [];
+    let node = el;
+    while (node && node.nodeType === 1 && parts.length < 12) {{
+      let part = clean(node.tagName);
+      const id = String(node.getAttribute("id") || "").trim();
+      const name = String(node.getAttribute("name") || "").trim();
+      if (id) part += "#" + id;
+      else if (name) part += "[name=" + name + "]";
+      else if (node.parentElement) part += ":nth-child(" +
+        (Array.from(node.parentElement.children).indexOf(node) + 1) + ")";
+      parts.unshift(part.slice(0, 120));
+      if (id) break;
+      node = node.parentElement;
+    }}
+    return parts;
+  }};
+  const label = (el) => {{
+    const aria = el.getAttribute("aria-label");
+    if (aria) return String(aria).trim().slice(0, 120);
+    if (el.labels && el.labels.length) return Array.from(el.labels)
+      .map((item) => item.textContent).join(" ").replace(/\s+/g, " ").trim().slice(0, 120);
+    return "";
+  }};
+  const matches = Array.from(document.querySelectorAll("a,button,input,select,textarea"))
+    .filter((el) => el.tagName === wanted.tag &&
+      String(el.getAttribute("type") || "").slice(0, 120) === wanted.type &&
+      String(el.getAttribute("id") || "").slice(0, 120) === wanted.id &&
+      String(el.getAttribute("name") || "").slice(0, 120) === wanted.name &&
+      String(el.getAttribute("role") || "").slice(0, 120) === wanted.role &&
+      label(el) === wanted.label && JSON.stringify(locator(el)) === JSON.stringify(wanted.locator));
+  window.__LVMS_STAT_CONTROLS__ = new Map();
+  if (matches.length === 1) window.__LVMS_STAT_CONTROLS__.set({token_json}, matches[0]);
+  return matches.length;
+}})()
+"""
+        count = self._evaluate(expression, timeout_seconds=5)
+        return token if count == 1 else None
+
+    def _use_control(self, token: str, operation: str) -> object:
+        if not isinstance(token, str) or len(token) != 32:
+            raise CdpProtocolError("report control token is invalid")
+        token_json = json.dumps(token)
+        expression = rf"""
+(() => {{
+  const controls = window.__LVMS_STAT_CONTROLS__;
+  const control = controls instanceof Map ? controls.get({token_json}) : null;
+  if (!control || !control.isConnected) return "missing";
+  {operation}
+}})()
+"""
+        return self._evaluate(expression, timeout_seconds=5)
+
+    def focus_control(self, token: str) -> None:
+        if self._use_control(token, 'control.focus(); return "ok";') != "ok":
+            raise CdpProtocolError("report control is no longer available")
+
+    def activate_control(self, token: str) -> None:
+        if self._use_control(token, 'control.click(); return "ok";') != "ok":
+            raise CdpProtocolError("report control is no longer available")
+
+    def choose_native_option(self, token: str, text: str) -> bool:
+        self._validate_text(text, maximum=200)
+        text_json = json.dumps(text)
+        result = self._use_control(
+            token,
+            rf'''
+if (!(control instanceof HTMLSelectElement)) return "custom";
+const matches = Array.from(control.options).filter(
+  (option) => String(option.textContent || "").trim() === {text_json}
+);
+if (matches.length !== 1) return "option-missing";
+control.selectedIndex = matches[0].index;
+control.dispatchEvent(new Event("input", {{bubbles: true}}));
+control.dispatchEvent(new Event("change", {{bubbles: true}}));
+return "selected";
+''',
+        )
+        if result == "selected":
+            return True
+        if result == "custom":
+            return False
+        raise CdpProtocolError("report option is not uniquely available")
+
+    def replace_focused_text(self, text: str) -> None:
+        self._validate_text(text)
+        common: dict[str, object] = {
+            "key": "a",
+            "code": "KeyA",
+            "windowsVirtualKeyCode": 65,
+            "nativeVirtualKeyCode": 65,
+            "modifiers": 2,
+        }
+        self._connection.call(
+            "Input.dispatchKeyEvent", {"type": "rawKeyDown", **common}, timeout_seconds=5
+        )
+        self._connection.call(
+            "Input.dispatchKeyEvent", {"type": "keyUp", **common}, timeout_seconds=5
+        )
+        self.insert_text(text)
 
     def navigate(
         self,
