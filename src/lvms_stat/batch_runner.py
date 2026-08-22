@@ -161,37 +161,29 @@ def run_report_batch(
             stream.write("Batch already complete.\n")
             return 0
 
-        edge, connection, page = open_page(config, active, stage=set_stage)
-        set_stage("download_setup")
-        page.configure_downloads(config.download_directory)
-        actions = active.actions_factory(page, config.expected_origin)
-        navigator = active.navigator_factory(
-            config.expected_origin, active.clock, active.sleeper
-        )
-        set_stage("defined_reports")
-        navigator.reach(page, actions, stage=set_stage)
-        form = active.form_factory(
-            page,
-            actions,
-            config.expected_origin,
-            active.clock,
-            active.sleeper,
-        )
-
         for index, (job, filename) in enumerate(pending, start=1):
             current_job = job.job_key
             if progress is not None:
                 progress(index, len(pending))
+            edge, connection, page = open_page(config, active, stage=set_stage)
+            set_stage("download_setup")
+            page.configure_downloads(config.download_directory)
+            actions = active.actions_factory(page, config.expected_origin)
+            navigator = active.navigator_factory(
+                config.expected_origin, active.clock, active.sleeper
+            )
+            set_stage("defined_reports")
+            navigator.reach(page, actions, stage=set_stage)
+            form = active.form_factory(
+                page,
+                actions,
+                config.expected_origin,
+                active.clock,
+                active.sleeper,
+            )
             set_stage(f"report_{index}_clear")
             contract = _wait_for_page(page, config.expected_origin, active)
             actions.activate(contract.clear)
-            if index > 1:
-                # LVMS can ignore the first clear while the preceding export is
-                # still settling. Re-resolve and activate the live button once
-                # more before accepting the cleared form.
-                active.sleeper(2.0)
-                contract = _wait_for_page(page, config.expected_origin, active)
-                actions.activate(contract.clear)
             form.wait_until_clear()
             set_stage(f"report_{index}_fill")
             contract = _wait_for_page(page, config.expected_origin, active)
@@ -207,6 +199,11 @@ def run_report_batch(
             source = _wait_for_csv(detector, active, timeout_seconds)
             active.finalizer(source, output_directory, filename)
             stream.write(f"Batch job completed: {job.job_key} -> {filename}\n")
+            set_stage(f"report_{index}_cleanup")
+            if close_owned(connection, edge):
+                raise BrowserCleanupError("owned browser cleanup did not complete")
+            connection = None
+            edge = None
         result = 0
     except BrowserCleanupError:
         if failure is not None:

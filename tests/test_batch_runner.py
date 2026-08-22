@@ -254,12 +254,16 @@ class BatchRunnerTests(unittest.TestCase):
                 "populate:ordered",
                 "export:ordered",
                 "finalize:ordered",
-                "clear:answered",
+                "close_connection",
+                "close_edge",
+                "navigate",
                 "clear:answered",
                 "populate:answered",
                 "export:answered",
                 "finalize:answered",
-                "clear:extraction",
+                "close_connection",
+                "close_edge",
+                "navigate",
                 "clear:extraction",
                 "populate:extraction",
                 "export:extraction",
@@ -270,7 +274,7 @@ class BatchRunnerTests(unittest.TestCase):
         )
         self.assertNotIn("ANALYSIS-ORDERED", output)
         self.assertNotIn(str(harness.config.download_directory), output)
-        self.assertEqual(harness.download_setup_count, 4)
+        self.assertEqual(harness.download_setup_count, 6)
         self.assertTrue(
             (harness.config.profile_directory.parent / "rådata").is_dir()
         )
@@ -324,13 +328,13 @@ class BatchRunnerTests(unittest.TestCase):
                 self.assertEqual(harness.export_counts["extraction"], 0)
                 self.assertEqual(harness.completed, ["ordered"])
 
-    def test_cleanup_failure_changes_success_to_failure_after_three_exports(self) -> None:
+    def test_cleanup_failure_stops_before_opening_the_next_report(self) -> None:
         harness = BatchHarness("cleanup")
 
         result, output = self.run_harness(harness)
 
         self.assertEqual(result, 2)
-        self.assertEqual(harness.completed, list(JOB_KEYS))
+        self.assertEqual(harness.completed, ["ordered"])
         self.assertIn("cleanup", output.lower())
         self.assertEqual(harness.events[-2:], ["close_connection", "close_edge"])
 
