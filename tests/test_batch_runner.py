@@ -177,6 +177,8 @@ class BatchHarness:
         def browser_open(profile: Path) -> object:
             del profile
             harness.browser_open_count += 1
+            if harness.failure_stage == "edge_start":
+                raise RuntimeError("synthetic browser startup detail")
             return SimpleNamespace(edge=Edge(), target=object())
 
         def finalizer(source: Path, directory: Path, filename: str) -> Path:
@@ -327,6 +329,23 @@ class BatchRunnerTests(unittest.TestCase):
         self.assertIn("cleanup", output.lower())
         self.assertNotIn("synthetic", output.lower())
         self.assertEqual(harness.events, ["navigate", "close_connection", "close_edge"])
+
+    def test_reports_sanitized_edge_start_failure_stage(self) -> None:
+        harness = BatchHarness("edge_start")
+        self.addCleanup(harness.cleanup)
+        failures: list[str] = []
+
+        result = run_report_batch(
+            Path("config.json"),
+            Path("jobs.json"),
+            JOB_KEYS,
+            dependencies=harness.dependencies(),
+            output=io.StringIO(),
+            failure=failures.append,
+        )
+
+        self.assertEqual(result, 2)
+        self.assertEqual(failures, ["edge_start"])
 
 
 if __name__ == "__main__":

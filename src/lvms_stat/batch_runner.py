@@ -125,6 +125,7 @@ def run_report_batch(
     repository_root: Path | None = None,
     timeout_seconds: float = 600,
     progress: Callable[[int, int], None] | None = None,
+    failure: Callable[[str], None] | None = None,
 ) -> int:
     active = dependencies or _default_dependencies()
     stream = output or sys.stdout
@@ -132,22 +133,32 @@ def run_report_batch(
     edge: Any | None = None
     connection: Any | None = None
     current_job: str | None = None
+    current_stage = "configuration"
     result = 2
+
+    def set_stage(stage: str) -> None:
+        nonlocal current_stage
+        current_stage = stage
+
     try:
         if not 1 <= timeout_seconds <= 3600:
             raise ValueError("report timeout is invalid")
         config = active.config_load(config_path, root)
+        set_stage("job_definitions")
         jobs = select_batch_jobs(active.jobs_load(jobs_path), job_keys)
+        set_stage("output_check")
         filenames = tuple(batch_filename(job) for job in jobs)
         if any((config.download_directory / name).exists() for name in filenames):
             raise RuntimeError("batch destination already exists")
 
-        edge, connection, page = open_page(config, active)
+        edge, connection, page = open_page(config, active, stage=set_stage)
+        set_stage("download_setup")
         page.configure_downloads(config.download_directory)
         actions = active.actions_factory(page, config.expected_origin)
         navigator = active.navigator_factory(
             config.expected_origin, active.clock, active.sleeper
         )
+        set_stage("defined_reports")
         navigator.reach(page, actions)
         form = active.form_factory(
             page,
@@ -163,27 +174,35 @@ def run_report_batch(
             current_job = job.job_key
             if progress is not None:
                 progress(index, len(jobs))
+            set_stage(f"report_{index}_clear")
             contract = _wait_for_page(page, config.expected_origin, active)
             actions.activate(contract.clear)
             form.wait_until_clear()
+            set_stage(f"report_{index}_fill")
             contract = _wait_for_page(page, config.expected_origin, active)
             form.populate(contract, job)
             _write_review(stream, job)
+            set_stage(f"report_{index}_export")
             contract = _wait_for_page(page, config.expected_origin, active)
             detector = active.detector_factory(config.download_directory)
             detector.start()
             actions.activate(contract.export)
+            set_stage(f"report_{index}_download")
             source = _wait_for_csv(detector, active, timeout_seconds)
             active.finalizer(source, config.download_directory, filename)
             stream.write(f"Batch job completed: {job.job_key} -> {filename}\n")
         result = 0
     except BrowserCleanupError:
+        if failure is not None:
+            failure(current_stage)
         stream.write("Batch cleanup did not complete.\n")
         result = 2
     except KeyboardInterrupt:
         stream.write("Batch cancelled.\n")
         result = 130
     except Exception:
+        if failure is not None:
+            failure(current_stage)
         if current_job is None:
             stream.write("Batch failed safely.\n")
         else:
@@ -191,6 +210,8 @@ def run_report_batch(
         result = 2
     finally:
         if close_owned(connection, edge):
+            if failure is not None:
+                failure("cleanup")
             stream.write("Batch cleanup did not complete.\n")
             result = 2
     return result

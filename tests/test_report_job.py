@@ -44,6 +44,25 @@ class ReportJobTests(unittest.TestCase):
         )
         self.assertNotIn("ANALYSIS-A", str(job.review()))
 
+    def test_output_stem_accepts_safe_uppercase_lvms_filename(self) -> None:
+        job = validate_report_job(
+            {**self.valid(), "output_stem": "PAT-DIT-EKSTRAKSJON-OU"}
+        )
+
+        self.assertTrue(batch_filename(job).startswith("PAT-DIT-EKSTRAKSJON-OU__"))
+
+    def test_approved_hematology_test_jobs_are_valid_and_ordered(self) -> None:
+        jobs_path = Path(__file__).resolve().parents[1] / "jobs.hematology-test.json"
+
+        jobs = load_report_jobs(jobs_path)
+
+        self.assertEqual([job.job_key for job in jobs], ["ordered", "answered", "extraction"])
+        self.assertEqual([len(job.analysis_codes) for job in jobs], [70, 70, 25])
+        self.assertEqual(
+            [job.interval.as_lvms() for job in jobs],
+            [("01.08.2026", "07.08.2026")] * 3,
+        )
+
     def test_rejects_unsafe_or_ambiguous_values(self) -> None:
         invalid = (
             {"analysis_codes": ["A", "A"]},

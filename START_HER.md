@@ -3,8 +3,9 @@
 ## Første oppsett på jobb-PC-en
 
 1. Kopier `config.example.json` til `config.json`.
-2. Kopier `jobs.example.json` til `jobs.json`.
-3. Fyll inn lokale LVMS-verdier i de to kopiene. De blir ikke lagt til i Git.
+2. Kontroller `jobs.hematology-test.json`. Appen bruker denne filen direkte for
+   den godkjente korte testen.
+3. Fyll inn lokale LVMS-verdier i `config.json`. Den blir ikke lagt til i Git.
 4. Dobbeltklikk `LVMS-STAT_INSTALLER.cmd` én gang.
 5. Vent til Python FELLES viser `>>>`, trykk `Ctrl+V` og deretter `Enter`.
 6. Når installasjonen er ferdig, lukk hele Python FELLES.
@@ -15,7 +16,8 @@
 - En egen Edge-profil under Local AppData.
 - En nedlastingsmappe under Local AppData.
 
-`jobs.json` skal inneholde nøyaktig jobbene `ordered`, `answered` og `extraction` med eksplisitte datoer.
+`jobs.hematology-test.json` inneholder nøyaktig jobbene `ordered`, `answered` og
+`extraction` med eksplisitte testdatoer.
 
 ## Start appen
 

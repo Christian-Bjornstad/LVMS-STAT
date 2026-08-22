@@ -16,7 +16,9 @@ Start with [START_HER.md](START_HER.md). The next development stages are in [PLA
 - `LVMS-STAT_INSTALLER.cmd` — installs the app through Python FELLES.
 - `LVMS-STAT_START.cmd` — opens the app through Python FELLES.
 - `config.example.json` — template for the local browser and download configuration.
-- `jobs.example.json` — synthetic template for the three report jobs.
+- `jobs.hematology-test.json` — the three approved hematology test jobs for
+  01–07 August 2026.
+- `jobs.example.json` — synthetic template for later custom report jobs.
 - `tests/` — offline tests that do not contact LVMS or start Edge.
 
 Local `config.json`, `jobs.json`, downloaded reports, browser profiles, and logs are ignored by Git.

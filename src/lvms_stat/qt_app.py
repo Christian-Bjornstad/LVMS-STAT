@@ -13,8 +13,34 @@ from lvms_stat.batch_runner import run_report_batch
 
 
 DEFAULT_JOB_KEYS = ("ordered", "answered", "extraction")
+DEFAULT_JOBS_FILENAME = "jobs.hematology-test.json"
 BatchProgress = Callable[[int, int], None]
-BatchRunner = Callable[[Path, Path, tuple[str, ...], BatchProgress], int]
+BatchFailure = Callable[[str], None]
+BatchRunner = Callable[
+    [Path, Path, tuple[str, ...], BatchProgress, BatchFailure], int
+]
+
+FAILURE_LABELS = {
+    "configuration": "oppsettet",
+    "job_definitions": "rapportoppsettet",
+    "output_check": "kontroll av nedlastinger",
+    "edge_start": "oppstart av Edge",
+    "cdp_connect": "tilkobling til Edge",
+    "lvms_open": "åpning av LVMS",
+    "download_setup": "oppsett av nedlasting",
+    "defined_reports": "navigering til Definerte rapporter",
+    "cleanup": "avslutning av Edge",
+    **{
+        f"report_{number}_{stage}": f"rapport {number} – {label}"
+        for number in range(1, 4)
+        for stage, label in (
+            ("clear", "tømming av skjema"),
+            ("fill", "utfylling"),
+            ("export", "eksport"),
+            ("download", "nedlasting"),
+        )
+    },
+}
 
 
 class PyQtUnavailable(RuntimeError):
@@ -35,6 +61,7 @@ def _run_batch_silently(
     jobs_path: Path,
     job_keys: tuple[str, ...],
     progress: BatchProgress,
+    failure: BatchFailure,
 ) -> int:
     return run_report_batch(
         config_path,
@@ -42,6 +69,7 @@ def _run_batch_silently(
         job_keys,
         output=io.StringIO(),
         progress=progress,
+        failure=failure,
     )
 
 
@@ -57,12 +85,20 @@ def run_one_click_batch(
     def report_progress(current: int, total: int) -> None:
         status(f"Kjører rapport {current} av {total} …")
 
+    failed_stage: str | None = None
+
+    def report_failure(stage: str) -> None:
+        nonlocal failed_stage
+        if stage in FAILURE_LABELS:
+            failed_stage = stage
+
     try:
         result = runner(
             config_path,
-            config_path.with_name("jobs.json"),
+            config_path.with_name(DEFAULT_JOBS_FILENAME),
             DEFAULT_JOB_KEYS,
             report_progress,
+            report_failure,
         )
     except Exception:
         result = 2
@@ -71,7 +107,10 @@ def run_one_click_batch(
     elif result == 130:
         status("Kjøringen ble avbrutt.")
     else:
-        status("Kjøringen stoppet. Rett feilen og prøv igjen manuelt.")
+        if failed_stage is None:
+            status("Kjøringen stoppet. Rett feilen og prøv igjen manuelt.")
+        else:
+            status(f"Kjøringen stoppet ved: {FAILURE_LABELS[failed_stage]}.")
     return result
 
 

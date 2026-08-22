@@ -31,7 +31,7 @@ class QtAppTests(unittest.TestCase):
 
         result = run_one_click_batch(
             Path("local/config.json"),
-            runner=lambda config, jobs, keys, progress: calls.append(
+            runner=lambda config, jobs, keys, progress, failure: calls.append(
                 (config, jobs, keys)
             )
             or progress(1, 3)
@@ -47,7 +47,7 @@ class QtAppTests(unittest.TestCase):
             [
                 (
                     Path("local/config.json"),
-                    Path("local/jobs.json"),
+                    Path("local/jobs.hematology-test.json"),
                     DEFAULT_JOB_KEYS,
                 )
             ],
@@ -67,9 +67,15 @@ class QtAppTests(unittest.TestCase):
         calls = 0
         statuses: list[str] = []
 
-        def fail(config: Path, jobs: Path, keys: tuple[str, ...], progress: object) -> int:
+        def fail(
+            config: Path,
+            jobs: Path,
+            keys: tuple[str, ...],
+            progress: object,
+            failure: object,
+        ) -> int:
             nonlocal calls
-            del config, jobs, keys, progress
+            del config, jobs, keys, progress, failure
             calls += 1
             return 2
 
@@ -82,6 +88,27 @@ class QtAppTests(unittest.TestCase):
         self.assertEqual(
             statuses[-1], "Kjøringen stoppet. Rett feilen og prøv igjen manuelt."
         )
+
+    def test_one_click_batch_reports_sanitized_failure_stage(self) -> None:
+        statuses: list[str] = []
+
+        def fail(
+            config: Path,
+            jobs: Path,
+            keys: tuple[str, ...],
+            progress: object,
+            failure: object,
+        ) -> int:
+            del config, jobs, keys, progress
+            failure("lvms_open")  # type: ignore[operator]
+            return 2
+
+        result = run_one_click_batch(
+            Path("config.json"), runner=fail, status=statuses.append
+        )
+
+        self.assertEqual(result, 2)
+        self.assertEqual(statuses[-1], "Kjøringen stoppet ved: åpning av LVMS.")
 
 
 if __name__ == "__main__":
