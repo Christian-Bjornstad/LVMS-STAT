@@ -414,6 +414,37 @@ class BatchNavigationTests(unittest.TestCase):
         self.assertIn("defined_reports_activate_direct", stages)
         self.assertEqual(stages[-1], "defined_reports_ready")
 
+    def test_navigator_reports_contract_metadata_failure(self) -> None:
+        page = FakeSafePage({"unexpected": "shape"})
+        stages: list[str] = []
+        navigator = DefinedReportsNavigator(
+            EXPECTED_ORIGIN, clock=lambda: 0.0, sleep=lambda seconds: None
+        )
+
+        with self.assertRaises(BatchNavigationError):
+            navigator.reach(page, NavigationState().actions, stage=stages.append)
+
+        self.assertEqual(stages[-1], "defined_reports_contract_metadata")
+
+    def test_navigator_reports_contract_evaluation_failure(self) -> None:
+        class BrokenPage:
+            def current_origin(self) -> str:
+                return EXPECTED_ORIGIN
+
+            def evaluate_safe(self, expression: str, *, timeout_seconds: float = 2):
+                del expression, timeout_seconds
+                raise RuntimeError("private browser detail")
+
+        stages: list[str] = []
+        navigator = DefinedReportsNavigator(
+            EXPECTED_ORIGIN, clock=lambda: 0.0, sleep=lambda seconds: None
+        )
+
+        with self.assertRaises(RuntimeError):
+            navigator.reach(BrokenPage(), NavigationState().actions, stage=stages.append)
+
+        self.assertEqual(stages[-1], "defined_reports_contract_evaluation")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -279,7 +279,19 @@ class DefinedReportsNavigator:
                 if used_defined_reports
                 else "defined_reports_probe_form"
             )
-            contract = discover_defined_reports_page(page, self._expected_origin)
+            try:
+                contract = discover_defined_reports_page(
+                    page, self._expected_origin
+                )
+            except BatchNavigationError as exc:
+                if str(exc) == "Edge reached an unexpected origin":
+                    stage("defined_reports_contract_origin")
+                else:
+                    stage("defined_reports_contract_metadata")
+                raise
+            except Exception:
+                stage("defined_reports_contract_evaluation")
+                raise
             if contract is not None:
                 stage("defined_reports_ready")
                 return contract

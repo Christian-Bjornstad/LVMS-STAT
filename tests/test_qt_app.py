@@ -125,6 +125,21 @@ class QtAppTests(unittest.TestCase):
             "Kjøringen stoppet ved: venting på rapportskjemaet etter klikk.",
         )
 
+    def test_one_click_batch_reports_contract_metadata_substage(self) -> None:
+        statuses: list[str] = []
+
+        def fail(config, jobs, keys, progress, failure):  # type: ignore[no-untyped-def]
+            del config, jobs, keys, progress
+            failure("defined_reports_contract_metadata")
+            return 2
+
+        run_one_click_batch(Path("config.json"), runner=fail, status=statuses.append)
+
+        self.assertEqual(
+            statuses[-1],
+            "Kjøringen stoppet ved: validering av rapportskjemaets kontrollmetadata.",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
