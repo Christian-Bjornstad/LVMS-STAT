@@ -281,6 +281,7 @@ class DefinedReportsNavigator:
         hovered_section = False
         activated_section = False
         used_defined_reports = False
+        last_missing_control: str | None = None
         while self._clock() < deadline:
             try:
                 current_origin = page.current_origin()
@@ -304,16 +305,25 @@ class DefinedReportsNavigator:
                 error = str(exc)
                 if error == "Edge reached an unexpected origin":
                     stage("defined_reports_contract_origin")
+                    raise
                 elif error.startswith("Defined Reports ") and error.endswith(
                     " is missing"
                 ):
                     missing = error.removeprefix("Defined Reports ").removesuffix(
                         " is missing"
                     )
+                    if missing not in {"job_type", "clear", "export"}:
+                        stage("defined_reports_contract_metadata")
+                        raise
+                    last_missing_control = missing
                     stage(f"defined_reports_missing_{missing}")
+                    contract = None
+                    if used_defined_reports:
+                        self._sleep(0.1)
+                        continue
                 else:
                     stage("defined_reports_contract_metadata")
-                raise
+                    raise
             except Exception:
                 stage("defined_reports_contract_evaluation")
                 raise
@@ -366,4 +376,9 @@ class DefinedReportsNavigator:
                     self._sleep(0.1)
                     continue
             self._sleep(0.1)
+        if last_missing_control is not None:
+            stage(f"defined_reports_missing_{last_missing_control}")
+            raise BatchNavigationError(
+                f"Defined Reports {last_missing_control} is missing"
+            )
         raise BatchNavigationError("Defined Reports navigation timed out")

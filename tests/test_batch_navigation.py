@@ -457,16 +457,60 @@ class BatchNavigationTests(unittest.TestCase):
         self.assertEqual(stages[-1], "defined_reports_contract_metadata")
 
     def test_navigator_reports_missing_control_stage(self) -> None:
-        page = FakeSafePage({"missing": "export"})
+        class MissingExportPage:
+            def __init__(self) -> None:
+                self.probes = 0
+
+            def current_origin(self) -> str:
+                return EXPECTED_ORIGIN
+
+            def evaluate_safe(self, expression: str, *, timeout_seconds: float = 2):
+                del timeout_seconds
+                if "LVMS_DEFINED_REPORTS_PAGE" in expression:
+                    self.probes += 1
+                    return {"missing": "export"}
+                return None
+
+        page = MissingExportPage()
         stages: list[str] = []
+        navigator = DefinedReportsNavigator(
+            EXPECTED_ORIGIN,
+            timeout_seconds=3,
+            clock=TickingClock(),
+            sleep=lambda seconds: None,
+        )
+
+        with self.assertRaisesRegex(
+            BatchNavigationError, "Defined Reports export is missing"
+        ):
+            navigator.reach(page, NavigationState().actions, stage=stages.append)
+
+        self.assertEqual(stages[-1], "defined_reports_missing_export")
+        self.assertGreater(page.probes, 1)
+
+    def test_navigator_does_not_let_loading_form_block_navigation(self) -> None:
+        class LoadingLanding(NavigationState):
+            def __init__(self) -> None:
+                super().__init__(("defined_reports",))
+                self.probes = 0
+
+            def evaluate_safe(self, expression: str, *, timeout_seconds: float = 2):
+                if "LVMS_DEFINED_REPORTS_PAGE" in expression:
+                    self.probes += 1
+                    if self.probes == 1:
+                        return {"missing": "job_type"}
+                return super().evaluate_safe(
+                    expression, timeout_seconds=timeout_seconds
+                )
+
+        state = LoadingLanding()
         navigator = DefinedReportsNavigator(
             EXPECTED_ORIGIN, clock=lambda: 0.0, sleep=lambda seconds: None
         )
 
-        with self.assertRaises(BatchNavigationError):
-            navigator.reach(page, NavigationState().actions, stage=stages.append)
+        navigator.reach(state, state)
 
-        self.assertEqual(stages[-1], "defined_reports_missing_export")
+        self.assertEqual(state.activations, ["defined_reports"])
 
     def test_navigator_reports_contract_evaluation_failure(self) -> None:
         class BrokenPage:
