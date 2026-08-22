@@ -124,7 +124,7 @@ DEFINED_REPORTS_PAGE_SCRIPT = (
   const exports = [];
   for (const entry of documents) {
     for (const control of Array.from(entry.document.querySelectorAll(
-      "input[name='menu'][data-datafield='reportType']"
+      "input[name='menu'][data-datafield='reportType' i]"
     )).filter(visible)) jobTypes.push({frame: entry.frame, control});
     for (const control of Array.from(entry.document.querySelectorAll(
       "button#clear[name='menu'][type='button']"
