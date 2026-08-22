@@ -340,7 +340,7 @@ class CdpTests(unittest.TestCase):
 
         self.assertIsNotNone(token)
         expression = cdp.calls[0][1]["expression"]  # type: ignore[index]
-        self.assertIn('"a,button,input,select,span,textarea"', expression)
+        self.assertIn('"a,button,input,select,span,td,textarea"', expression)
 
     def test_focus_requires_control_to_become_active_in_its_own_document(self) -> None:
         cdp = FakeCdp([evaluated("focus-failed")])

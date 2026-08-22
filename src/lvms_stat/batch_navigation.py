@@ -166,7 +166,9 @@ def _navigation_anchor_script(label: str) -> str:
   const matches = [];
   for (const entry of documents) {{
     for (const control of Array.from(
-      entry.document.querySelectorAll("a,button,span")
+      entry.document.querySelectorAll(
+        "td.sitemap.TramSlopNormText,a,button,span"
+      )
     )) {{
       if (!visible(control)) continue;
       const exactControl = clean(control.textContent) === normalizedWanted;
@@ -176,7 +178,13 @@ def _navigation_anchor_script(label: str) -> str:
         matches.push({{frame: entry.frame, control}});
     }}
   }}
-  return matches.length ? identity(matches[0].control, matches[0].frame) : null;
+  const tramLine = normalizedWanted === clean("Definerte rapporter")
+    ? matches.find((match) => match.control.matches(
+        "td.sitemap.TramSlopNormText"
+      ))
+    : null;
+  const selected = tramLine || matches[0];
+  return selected ? identity(selected.control, selected.frame) : null;
 }})()
 """
     ).strip()
@@ -236,8 +244,12 @@ def discover_navigation_anchor(
     if raw is None:
         return None
     identity = _document(raw)
+    is_more_span = label == MORE_LABEL and identity.control.tag == "SPAN"
+    is_defined_reports_tram = (
+        label == DEFINED_REPORTS_LABEL and identity.control.tag == "TD"
+    )
     if identity.control.tag not in {"A", "BUTTON"} and not (
-        label == MORE_LABEL and identity.control.tag == "SPAN"
+        is_more_span or is_defined_reports_tram
     ):
         raise BatchNavigationError("navigation control is invalid")
     return identity

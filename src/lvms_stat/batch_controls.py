@@ -16,7 +16,7 @@ _CONTROL_FIELDS = frozenset(
     {"tag", "type", "id", "name", "role", "label", "locator"}
 )
 _ALLOWED_TAGS = frozenset(
-    {"A", "BUTTON", "INPUT", "SELECT", "SPAN", "TEXTAREA"}
+    {"A", "BUTTON", "INPUT", "SELECT", "SPAN", "TD", "TEXTAREA"}
 )
 
 

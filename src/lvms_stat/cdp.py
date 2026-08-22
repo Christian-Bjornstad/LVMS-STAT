@@ -405,7 +405,7 @@ class BrowserPage:
     }}
   }}
   const matches = Array.from(selectedDocument.querySelectorAll(
-    "a,button,input,select,span,textarea"
+    "a,button,input,select,span,td,textarea"
   ))
     .filter((el) => visible(el) && !el.disabled && !el.readOnly &&
       el.tagName === wanted.tag &&

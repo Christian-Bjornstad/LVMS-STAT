@@ -255,7 +255,8 @@ class BatchNavigationTests(unittest.TestCase):
         assert anchor is not None
         self.assertEqual(anchor.control.tag, "SPAN")
         self.assertIn(
-            'querySelectorAll("a,button,span")', more.expressions[0]
+            '"td.sitemap.TramSlopNormText,a,button,span"',
+            more.expressions[0],
         )
 
         with self.assertRaises(BatchNavigationError):
@@ -269,6 +270,25 @@ class BatchNavigationTests(unittest.TestCase):
                 EXPECTED_ORIGIN,
                 "Eksterne rapporter",
             )
+
+    def test_navigation_prioritizes_lvms_tram_line_for_defined_reports(self) -> None:
+        tram_line = FakeSafePage(
+            raw_document(
+                "top",
+                raw_control("TD", "defined_reports_tram", label=""),
+            )
+        )
+
+        anchor = discover_navigation_anchor(
+            tram_line, EXPECTED_ORIGIN, "Definerte rapporter"
+        )
+
+        self.assertIsNotNone(anchor)
+        assert anchor is not None
+        self.assertEqual(anchor.control.tag, "TD")
+        expression = tram_line.expressions[0]
+        self.assertIn("td.sitemap.TramSlopNormText", expression)
+        self.assertIn("tramLine || matches[0]", expression)
 
     def test_navigator_handles_direct_wide_and_narrow_responsive_routes(self) -> None:
         expected = {
