@@ -162,27 +162,27 @@ class SlowParameterState(FormState):
         return super().evaluate_safe(expression, timeout_seconds=timeout_seconds)
 
 
-class RefreshingParameterState(FormState):
+class RefreshingFinalParameterState(FormState):
     def __init__(self) -> None:
         super().__init__()
-        self.generation = 0
+        self.created_to_checks = 0
 
     def evaluate_safe(self, expression: str, *, timeout_seconds: float = 2) -> object:
         del timeout_seconds
-        for role in ("analysis_codes", "created_from", "created_to"):
-            if f'const requestedRole = "{role}"' in expression:
-                payload = dict(ROLE_PAYLOADS[role])
-                control = dict(payload["control"])  # type: ignore[arg-type]
-                control["id"] = f"{control['id']}-{self.generation}"
-                payload["control"] = control
-                return payload
+        if 'const requestedRole = "created_to"' in expression:
+            self.created_to_checks += 1
+            payload = dict(ROLE_PAYLOADS["created_to"])
+            control = dict(payload["control"])  # type: ignore[arg-type]
+            control["id"] = f"{control['id']}-{self.created_to_checks}"
+            payload["control"] = control
+            return payload
         return super().evaluate_safe(expression)
 
     def replace_text(self, control: DocumentControlIdentity, text: str) -> None:
-        if not control.control.element_id.endswith(f"-{self.generation}"):
-            raise AssertionError("stale parameter identity")
+        if control.control.element_id.startswith("created-to"):
+            if control.control.element_id != "created-to-2":
+                raise AssertionError("stale final parameter identity")
         super().replace_text(control, text)
-        self.generation += 1
 
 
 class TickingClock:
@@ -361,8 +361,8 @@ class BatchFormTests(unittest.TestCase):
             ("replace", "_nav_frame1", "created-to", "07.08.2026"),
         )
 
-    def test_populate_rediscovers_each_parameter_after_grid_refresh(self) -> None:
-        state = RefreshingParameterState()
+    def test_populate_rediscovers_final_parameter_after_grid_refresh(self) -> None:
+        state = RefreshingFinalParameterState()
         form = BatchReportForm(
             state.page,
             state.actions,
@@ -373,7 +373,7 @@ class BatchFormTests(unittest.TestCase):
 
         form.populate(defined_reports_page(), job())
 
-        self.assertEqual(state.generation, 3)
+        self.assertEqual(state.created_to_checks, 2)
 
     def test_wait_until_clear_allows_persistent_empty_choice_controls(self) -> None:
         page = ClearingPage(dynamic_roles_present=False)

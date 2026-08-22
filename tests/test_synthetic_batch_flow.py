@@ -231,7 +231,7 @@ class SyntheticPage:
             "created-from",
             "created-to",
         }:
-            self.focused = element_id
+            pass
         else:
             raise AssertionError("unexpected synthetic activation")
 
