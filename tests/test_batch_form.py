@@ -213,6 +213,21 @@ class ClearingPage:
         return None
 
 
+class ReappearingClearPage(ClearingPage):
+    def __init__(self) -> None:
+        super().__init__(dynamic_roles_present=False)
+        self.round = 0
+
+    def evaluate_safe(self, expression: str, *, timeout_seconds: float = 2) -> object:
+        for role in ("analysis_codes", "created_from", "created_to"):
+            if f'const requestedRole = "{role}"' in expression:
+                result = ROLE_PAYLOADS[role] if self.round == 1 else None
+                if role == "created_to":
+                    self.round += 1
+                return result
+        return super().evaluate_safe(expression, timeout_seconds=timeout_seconds)
+
+
 class BatchFormTests(unittest.TestCase):
     def test_discovers_each_supported_role_across_named_documents(self) -> None:
         expected_ids = {
@@ -403,6 +418,21 @@ class BatchFormTests(unittest.TestCase):
 
         with self.assertRaises(BatchFormError):
             form.wait_until_clear()
+
+    def test_wait_until_clear_requires_clear_state_to_remain_stable(self) -> None:
+        page = ReappearingClearPage()
+        form = BatchReportForm(
+            page,
+            FormState().actions,
+            EXPECTED_ORIGIN,
+            timeout_seconds=10,
+            clock=TickingClock(),
+            sleep=lambda seconds: None,
+        )
+
+        form.wait_until_clear()
+
+        self.assertGreaterEqual(page.round, 4)
 
 
 if __name__ == "__main__":

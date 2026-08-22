@@ -225,12 +225,23 @@ class BatchReportForm:
     def wait_until_clear(self) -> None:
         deadline = self._clock() + self._timeout_seconds
         while self._clock() < deadline:
-            if all(
+            cleared = tuple(
                 discover_report_role(self._page, self._expected_origin, role)
                 is None
                 for role in _CLEAR_DYNAMIC_ROLES
-            ):
-                return
+            )
+            if all(cleared):
+                # LVMS can briefly remove the parameter grid while rebuilding the
+                # previous report after an export. Require a second clear state
+                # before the next report starts against the form.
+                self._sleep(1.0)
+                stable = tuple(
+                    discover_report_role(self._page, self._expected_origin, role)
+                    is None
+                    for role in _CLEAR_DYNAMIC_ROLES
+                )
+                if all(stable):
+                    return
             self._sleep(0.1)
         raise BatchFormError("report form did not clear")
 
