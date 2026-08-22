@@ -1,63 +1,54 @@
+"""Modern PyQt6 dashboard for the statistics pipeline.
+
+Design language: dark card layout, one status card per unit, a single
+prominent action ("Hent oppdatering"), live progress and a quiet log.
+All heavy work runs on a worker thread; the UI thread only paints.
+
+The pure logic lives in :mod:`lvms_stat.dashboard_state` and
+:mod:`lvms_stat.fetch_orchestrator` - both fully unit tested without Qt.
+"""
+
 from __future__ import annotations
 
 import importlib
-import io
 import queue
 import sys
 import threading
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 from typing import Any
 
-from lvms_stat.batch_runner import run_report_batch
+DARK_BACKGROUND = "#12151c"
+CARD_BACKGROUND = "#1b2029"
+CARD_BORDER = "#2a3140"
+TEXT_PRIMARY = "#e8ecf3"
+TEXT_MUTED = "#8b94a7"
+ACCENT = "#4f8cff"
+ACCENT_HOVER = "#6b9fff"
+OK_GREEN = "#3ecf8e"
+AMBER = "#f5a623"
 
-
-DEFAULT_JOB_KEYS = ("ordered", "answered", "extraction")
-DEFAULT_JOBS_FILENAME = "jobs.hematology-test.json"
-BatchProgress = Callable[[int, int], None]
-BatchFailure = Callable[[str], None]
-BatchRunner = Callable[
-    [Path, Path, tuple[str, ...], BatchProgress, BatchFailure], int
-]
-
-FAILURE_LABELS = {
-    "configuration": "oppsettet",
-    "job_definitions": "rapportoppsettet",
-    "output_check": "kontroll av nedlastinger",
-    "edge_start": "oppstart av Edge",
-    "cdp_connect": "tilkobling til Edge",
-    "lvms_open": "åpning av LVMS",
-    "download_setup": "oppsett av nedlasting",
-    "defined_reports": "navigering til Definerte rapporter",
-    "defined_reports_probe_form": "kontroll av rapportskjemaet",
-    "defined_reports_contract_origin": "kontroll av LVMS-adressen for rapportskjemaet",
-    "defined_reports_wait_origin": "venting på LVMS-siden etter intern overgang",
-    "defined_reports_contract_metadata": "validering av rapportskjemaets kontrollmetadata",
-    "defined_reports_contract_evaluation": "lesing av rapportskjemaets DOM",
-    "defined_reports_missing_job_type": "finner ikke feltet Rapporttype",
-    "defined_reports_missing_clear": "finner ikke knappen Tøm",
-    "defined_reports_missing_export": "finner ikke knappen Eksportere",
-    "defined_reports_find_direct": "søk etter Definerte rapporter i tram-lines",
-    "defined_reports_activate_direct": "klikk på Definerte rapporter i tram-lines",
-    "defined_reports_wait_form": "venting på rapportskjemaet etter klikk",
-    "defined_reports_find_section": "søk etter Eksterne rapporter",
-    "defined_reports_hover_section": "åpning av undermenyen Eksterne rapporter",
-    "defined_reports_activate_section": "klikk på Eksterne rapporter",
-    "defined_reports_find_more": "søk etter Mer-menyen",
-    "defined_reports_activate_more": "klikk på Mer-menyen",
-    "defined_reports_ready": "gjenkjenning av rapportskjemaet",
-    "cleanup": "avslutning av Edge",
-    **{
-        f"report_{number}_{stage}": f"rapport {number} – {label}"
-        for number in range(1, 4)
-        for stage, label in (
-            ("clear", "tømming av skjema"),
-            ("fill", "utfylling"),
-            ("export", "eksport"),
-            ("download", "nedlasting"),
-        )
-    },
-}
+STYLESHEET = f"""
+QWidget {{ background: {DARK_BACKGROUND}; color: {TEXT_PRIMARY};
+           font-family: 'Segoe UI'; font-size: 13px; }}
+QLabel#Title {{ font-size: 22px; font-weight: 650; }}
+QLabel#Subtitle {{ color: {TEXT_MUTED}; }}
+QLabel#CardTitle {{ font-size: 15px; font-weight: 600; }}
+QLabel#Muted {{ color: {TEXT_MUTED}; }}
+QPushButton#Primary {{ background: {ACCENT}; border: none; border-radius: 8px;
+    padding: 12px 26px; font-size: 14px; font-weight: 600; color: white; }}
+QPushButton#Primary:hover {{ background: {ACCENT_HOVER}; }}
+QPushButton#Primary:disabled {{ background: {CARD_BORDER}; color: {TEXT_MUTED}; }}
+QFrame#Card {{ background: {CARD_BACKGROUND}; border: 1px solid {CARD_BORDER};
+    border-radius: 10px; }}
+QProgressBar {{ background: {CARD_BORDER}; border: none; border-radius: 6px;
+    height: 12px; }}
+QProgressBar::chunk {{ background: {ACCENT}; border-radius: 6px; }}
+QPlainTextEdit#Log {{ background: {CARD_BACKGROUND};
+    border: 1px solid {CARD_BORDER}; border-radius: 8px;
+    color: {TEXT_MUTED}; font-family: Consolas; font-size: 12px; }}
+"""
 
 
 class PyQtUnavailable(RuntimeError):
@@ -73,121 +64,254 @@ def load_pyqt6(
         raise PyQtUnavailable("PyQt6 is unavailable") from exc
 
 
-def _run_batch_silently(
-    config_path: Path,
-    jobs_path: Path,
-    job_keys: tuple[str, ...],
-    progress: BatchProgress,
-    failure: BatchFailure,
-) -> int:
-    return run_report_batch(
-        config_path,
-        jobs_path,
-        job_keys,
-        output=io.StringIO(),
-        progress=progress,
-        failure=failure,
-    )
-
-
-def run_one_click_batch(
+def build_dashboard(
     config_path: Path,
     *,
-    runner: BatchRunner = _run_batch_silently,
-    status: Callable[[str], None],
-) -> int:
-    """Run the fixed local three-report batch from one app action."""
-    status("Åpner LVMS og starter rapportene …")
+    fetch_runner: Callable[..., object],
+    today_provider: Callable[[], date] = date.today,
+) -> tuple[Any, Any]:
+    """Construct the dashboard window. Returns ``(window, app)``."""
+    QtCore, QtWidgets = load_pyqt6()
+    from lvms_stat.dashboard_state import (
+        describe_failure,
+        describe_outcome,
+        load_unit_statuses,
+    )
 
-    def report_progress(current: int, total: int) -> None:
-        status(f"Kjører rapport {current} av {total} …")
+    app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv[:1])
+    app.setStyleSheet(STYLESHEET)
 
-    failed_stage: str | None = None
+    window = QtWidgets.QWidget()
+    window.setWindowTitle("LVMS Statistikk")
+    window.setMinimumSize(720, 560)
+    root = QtWidgets.QVBoxLayout(window)
+    root.setContentsMargins(28, 24, 28, 20)
+    root.setSpacing(14)
 
-    def report_failure(stage: str) -> None:
-        nonlocal failed_stage
-        if stage in FAILURE_LABELS:
-            failed_stage = stage
+    header = QtWidgets.QHBoxLayout()
+    titles = QtWidgets.QVBoxLayout()
+    title = QtWidgets.QLabel("Statistikk")
+    title.setObjectName("Title")
+    subtitle = QtWidgets.QLabel(
+        "Inkrementell henting fra LVMS - arkiveres automatisk på statistikk-disken."
+    )
+    subtitle.setObjectName("Subtitle")
+    titles.addWidget(title)
+    titles.addWidget(subtitle)
+    header.addLayout(titles)
+    header.addStretch(1)
+    refresh_button = QtWidgets.QPushButton("Oppdater status")
+    refresh_button.setObjectName("Muted")
+    header.addWidget(refresh_button)
+    root.addLayout(header)
 
-    try:
-        result = runner(
-            config_path,
-            config_path.with_name(DEFAULT_JOBS_FILENAME),
-            DEFAULT_JOB_KEYS,
-            report_progress,
-            report_failure,
+    cards_layout = QtWidgets.QVBoxLayout()
+    cards_layout.setSpacing(10)
+    root.addLayout(cards_layout)
+    card_widgets: dict[str, dict[str, Any]] = {}
+
+    def make_card(unit: Any) -> None:
+        card = QtWidgets.QFrame()
+        card.setObjectName("Card")
+        inner = QtWidgets.QVBoxLayout(card)
+        inner.setContentsMargins(18, 14, 18, 14)
+        inner.setSpacing(6)
+        head = QtWidgets.QHBoxLayout()
+        name = QtWidgets.QLabel(unit.label)
+        name.setObjectName("CardTitle")
+        badge = QtWidgets.QLabel()
+        head.addWidget(name)
+        head.addStretch(1)
+        head.addWidget(badge)
+        detail = QtWidgets.QLabel()
+        detail.setObjectName("Muted")
+        detail.setWordWrap(True)
+        inner.addLayout(head)
+        inner.addWidget(detail)
+        run_button = QtWidgets.QPushButton("Hent nå")
+        run_button.setCursor(
+            QtCore.Qt.CursorShape.PointingHandCursor
         )
-    except Exception:
-        result = 2
-    if result == 0:
-        status("Ferdig – 3 rapporter er lastet ned.")
-    elif result == 130:
-        status("Kjøringen ble avbrutt.")
-    else:
-        if failed_stage is None:
-            status("Kjøringen stoppet. Rett feilen og prøv igjen manuelt.")
-        else:
-            status(f"Kjøringen stoppet ved: {FAILURE_LABELS[failed_stage]}.")
-    return result
+        row = QtWidgets.QHBoxLayout()
+        row.addStretch(1)
+        row.addWidget(run_button)
+        inner.addLayout(row)
+        cards_layout.addWidget(card)
+        card_widgets[unit.key] = {
+            "badge": badge,
+            "detail": detail,
+            "run": run_button,
+            "unit": unit,
+        }
+        run_button.clicked.connect(lambda _=False, key=unit.key: start_fetch(key))
 
+    progress = QtWidgets.QProgressBar()
+    progress.setVisible(False)
+    progress.setTextVisible(False)
+    progress.setFixedHeight(12)
+    root.addWidget(progress)
 
-def run_app(config_path: Path, *, runner: BatchRunner = _run_batch_silently) -> int:
-    """Open the visible one-click PyQt6 batch app."""
-    try:
-        QtCore, QtWidgets = load_pyqt6()
-        app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv[:1])
-        window = QtWidgets.QWidget()
-        window.setWindowTitle("LVMS-STAT")
-        window.setMinimumWidth(460)
+    status_label = QtWidgets.QLabel("")
+    status_label.setObjectName("Subtitle")
+    status_label.setWordWrap(True)
+    root.addWidget(status_label)
 
-        layout = QtWidgets.QVBoxLayout(window)
-        title = QtWidgets.QLabel("LVMS statistikk")
-        title.setStyleSheet("font-size: 20px; font-weight: 600;")
-        description = QtWidgets.QLabel(
-            "Åpner synlig Edge og henter ordered, answered og extraction automatisk."
-        )
-        description.setWordWrap(True)
-        status_label = QtWidgets.QLabel("Klar")
-        run_button = QtWidgets.QPushButton("Kjør rapporter")
-        run_button.setMinimumHeight(44)
-        layout.addWidget(title)
-        layout.addWidget(description)
-        layout.addSpacing(12)
-        layout.addWidget(status_label)
-        layout.addWidget(run_button)
+    log_box = QtWidgets.QPlainTextEdit()
+    log_box.setObjectName("Log")
+    log_box.setReadOnly(True)
+    log_box.setVisible(False)
+    root.addWidget(log_box, stretch=1)
 
-        events: queue.Queue[tuple[str, object]] = queue.Queue()
+    footer = QtWidgets.QHBoxLayout()
+    hint = QtWidgets.QLabel("K:\\-arkiv og manifest oppdateres etter hver kjøring.")
+    hint.setObjectName("Muted")
+    footer.addWidget(hint)
+    footer.addStretch(1)
+    root.addLayout(footer)
 
-        def update_status(message: str) -> None:
-            events.put(("status", message))
+    events: queue.Queue[tuple[str, Any]] = queue.Queue()
+
+    def post(kind: str, value: Any = None) -> None:
+        events.put((kind, value))
+
+    # -- state rendering -------------------------------------------------
+
+    def refresh_cards() -> None:
+        try:
+            statuses = load_unit_statuses(
+                config_path, today=today_provider()
+            )
+        except Exception as exc:
+            post("status", f"Klarte ikke lese oppsettet: {describe_failure(exc)}")
+            return
+        while cards_layout.count():
+            item = cards_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+        card_widgets.clear()
+        for unit in statuses:
+            make_card(unit)
+        for unit in statuses:
+            widgets = card_widgets[unit.key]
+            stale = [r for r in unit.reports if r.needs_fetch]
+            if not stale:
+                widgets["badge"].setText(f"● Oppdatert")
+                widgets["badge"].setStyleSheet(f"color: {OK_GREEN};")
+                widgets["run"].setEnabled(True)
+            else:
+                widgets["badge"].setText(f"● {len(stale)} må hentes")
+                widgets["badge"].setStyleSheet(f"color: {AMBER};")
+            lines = []
+            for report in unit.reports:
+                lines.append(f"{report.report_id} - {report.headline}")
+            lines.append(f"{unit.analysis_code_count} analysekoder")
+            widgets["detail"].setText("\n".join(lines))
+
+    # -- fetching ----------------------------------------------------------
+
+    running_key: list[str | None] = [None]
+
+    def start_fetch(unit_key: str) -> None:
+        if running_key[0] is not None:
+            return
+        running_key[0] = unit_key
+        for widgets in card_widgets.values():
+            widgets["run"].setEnabled(False)
+        refresh_button.setEnabled(False)
+        progress.setRange(0, 0)  # busy indicator
+        progress.setVisible(True)
+        log_box.clear()
+        log_box.setVisible(True)
+        status_label.setText("Kjører - åpner LVMS …")
 
         def worker() -> None:
-            result = run_one_click_batch(
-                config_path, runner=runner, status=update_status
-            )
-            events.put(("done", result))
+            def on_status(message: str) -> None:
+                post("log", message)
 
-        def start_batch() -> None:
-            run_button.setEnabled(False)
-            threading.Thread(target=worker, daemon=True).start()
+            def on_progress(current: int, total: int) -> None:
+                post("progress", (current, total))
 
-        def poll_events() -> None:
-            while True:
-                try:
-                    kind, value = events.get_nowait()
-                except queue.Empty:
-                    return
-                if kind == "status":
-                    status_label.setText(str(value))
-                elif kind == "done":
-                    run_button.setEnabled(True)
+            def on_failure(stage: str) -> None:
+                post("log", f"stopp ved {stage}")
 
-        run_button.clicked.connect(start_batch)
-        timer = QtCore.QTimer(window)
-        timer.timeout.connect(poll_events)
-        timer.start(100)
-        window.show()
+            try:
+                outcome = fetch_runner(
+                    config_path,
+                    unit_key=unit_key,
+                    output=log_stream(),
+                    progress=on_progress,
+                    failure=on_failure,
+                )
+                post("outcome", outcome)
+            except Exception as exc:
+                post("failed", exc)
+
+        def log_stream() -> Any:
+            class Stream:
+                def write(self, text: str) -> None:
+                    if text.strip():
+                        post("log", text.strip())
+
+                def flush(self) -> None:
+                    pass
+
+            return Stream()
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def finish_success(outcome: Any) -> None:
+        running_key[0] = None
+        progress.setVisible(False)
+        status_label.setText(describe_outcome(outcome))
+        refresh_cards()
+
+    def finish_failure(error: Exception) -> None:
+        running_key[0] = None
+        progress.setVisible(False)
+        status_label.setText(describe_failure(error))
+        refresh_cards()
+
+    def poll_events() -> None:
+        while True:
+            try:
+                kind, value = events.get_nowait()
+            except queue.Empty:
+                return
+            if kind == "status":
+                status_label.setText(str(value))
+            elif kind == "log":
+                log_box.appendPlainText(str(value))
+            elif kind == "progress":
+                current, total = value
+                progress.setRange(0, max(total, 1))
+                progress.setValue(min(current, total))
+            elif kind == "outcome":
+                finish_success(value)
+            elif kind == "failed":
+                finish_failure(value)
+
+    refresh_button.clicked.connect(refresh_cards)
+    timer = QtCore.QTimer(window)
+    timer.timeout.connect(poll_events)
+    timer.start(120)
+    refresh_cards()
+
+    window.show()
+    return window, app
+
+
+def run_app(config_path: Path, **kwargs: Any) -> int:
+    """Open the modern statistics dashboard."""
+    from lvms_stat.fetch_orchestrator import run_incremental_fetch
+
+    try:
+        _, app = build_dashboard(
+            config_path,
+            fetch_runner=run_incremental_fetch,
+            **kwargs,
+        )
         return int(app.exec())
     except Exception:
-        print("LVMS-STAT PyQt6 app is unavailable.", file=sys.stderr)
+        print("LVMS-STAT dashboard is unavailable.", file=sys.stderr)
         return 2
