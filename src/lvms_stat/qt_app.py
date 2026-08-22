@@ -244,6 +244,12 @@ def build_dashboard(
                     failure=on_failure,
                 )
                 post("outcome", outcome)
+                if getattr(outcome, "downloaded", ()) or getattr(
+                    outcome, "archived", ()
+                ):
+                    from lvms_stat.scheduled import _process_after_fetch
+
+                    _process_after_fetch(config_path, unit_key, log_stream())
             except Exception as exc:
                 post("failed", exc)
 
