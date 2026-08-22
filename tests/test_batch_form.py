@@ -225,6 +225,8 @@ class BatchFormTests(unittest.TestCase):
                 self.assertNotIn("[role='grid']", script)
                 self.assertNotIn("[role='treegrid']", script)
                 self.assertNotIn("!previous.querySelector", script)
+                self.assertIn('previous.querySelector("input,select,textarea")', script)
+                self.assertIn('previousControl.getAttribute("value")', script)
                 self.assertIn("[id*='patient' i]", script)
 
     def test_role_discovery_rejects_unknown_absent_or_wrong_origin(self) -> None:

@@ -379,8 +379,13 @@ class BrowserPage:
       .map((item) => item.textContent).join(" ")).slice(0, 120);
     const container = el.closest("td,th,[role='cell'],[role='gridcell']");
     const previous = container ? container.previousElementSibling : null;
-    if (previous)
-      return clean(previous.textContent).slice(0, 120);
+    if (previous) {{
+      const text = clean(previous.textContent);
+      if (text) return text.slice(0, 120);
+      const previousControl = previous.querySelector("input,select,textarea");
+      if (previousControl)
+        return clean(previousControl.getAttribute("value")).slice(0, 120);
+    }}
     return "";
   }};
   const visible = (el) => {{
