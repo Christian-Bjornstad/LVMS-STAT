@@ -15,6 +15,9 @@ class ManifestError(ValueError):
 
 DEFAULT_OVERLAP_DAYS = 3
 
+# First-ever fetch starts here so the initial run covers all history.
+DEFAULT_BACKFILL_FROM = date(2024, 1, 1)
+
 
 @dataclass(frozen=True)
 class RunRecord:
@@ -179,17 +182,18 @@ def plan_incremental_interval(
 ) -> tuple[date, date]:
     """Plan the next fetch interval so nothing is missed between runs.
 
-    The window starts ``overlap_days`` before the day after the last
+    Without history the interval starts at DEFAULT_BACKFILL_FROM so the
+    first run fetches everything from that date to today. The window
+    otherwise starts ``overlap_days`` before the day after the last
     completed interval; duplicates from the overlap are removed later by
     the documented deduplication key when raw files are merged.
     """
     if overlap_days < 0:
         raise ManifestError("overlap days is invalid")
     if last_completed_to is None:
-        raise ManifestError(
-            f"{report.unit}/{report.report_id}: no history in the manifest; "
-            "run an explicit backfill first"
-        )
+        # First ever run: fetch everything from DEFAULT_BACKFILL_FROM to
+        # today in one window.
+        return DEFAULT_BACKFILL_FROM, today
     start = last_completed_to + timedelta(days=1 - overlap_days)
     end = min(today, last_completed_to + timedelta(days=30))
     if start > end:

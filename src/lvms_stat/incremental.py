@@ -13,6 +13,7 @@ from datetime import date
 from pathlib import Path
 
 from lvms_stat.manifest import (
+    DEFAULT_BACKFILL_FROM,
     ManifestStore,
     UnitReport as ManifestUnitReport,
     plan_incremental_interval,
@@ -54,7 +55,8 @@ def plan_unit(
     """Plan the next incremental fetch for one unit.
 
     Reports whose manifest history already reaches today are marked
-    up to date and skipped.
+    up to date and skipped. Reports without any history get their first
+    window from DEFAULT_BACKFILL_FROM (01.01.2024) to today.
     """
     store = ManifestStore(statistics_root / "manifest.sqlite")
     fetches: list[PlannedFetch] = []
@@ -62,10 +64,15 @@ def plan_unit(
     for report in unit.reports:
         last = store.last_completed_to(unit.key, report.report_id)
         if last is None:
-            raise IncrementalPlanError(
-                f"{unit.label}/{report.report_id}: ingen historikk i "
-                "manifestet - kjør en eksplisitt backfill først"
+            fetches.append(
+                PlannedFetch(
+                    unit=unit,
+                    report=report,
+                    created_from=DEFAULT_BACKFILL_FROM,
+                    created_to=today,
+                )
             )
+            continue
         if last >= today:
             up_to_date.append(report.report_id)
             continue

@@ -94,13 +94,14 @@ def test_invalid_unit_is_rejected(tmp_path: Path) -> None:
         )
 
 
-def test_plan_first_run_without_history_requires_backfill() -> None:
-    with pytest.raises(ManifestError, match="backfill"):
-        plan_incremental_interval(
-            UnitReport("hemato", "ordered", "PAT-DIT-ANTALL-OU"),
-            last_completed_to=None,
-            today=date(2026, 8, 22),
-        )
+def test_plan_first_run_without_history_starts_at_backfill_from() -> None:
+    start, end = plan_incremental_interval(
+        UnitReport("hemato", "ordered", "PAT-DIT-ANTALL-OU"),
+        last_completed_to=None,
+        today=date(2026, 8, 22),
+    )
+    assert start == date(2024, 1, 1)
+    assert end == date(2026, 8, 22)
 
 
 def test_plan_continues_after_last_completed_with_overlap() -> None:

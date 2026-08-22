@@ -89,14 +89,17 @@ def test_plan_unit_marks_up_to_date(tmp_path: Path) -> None:
     )
 
 
-def test_plan_unit_requires_history(tmp_path: Path) -> None:
+def test_plan_unit_first_run_fetches_from_default_backfill(
+    tmp_path: Path,
+) -> None:
     units = load_units(write_units(tmp_path))
-    with pytest.raises(IncrementalPlanError, match="backfill"):
-        plan_unit(
-            units[0],
-            statistics_root=tmp_path / "K",
-            today=date(2026, 8, 22),
-        )
+    today = date(2026, 8, 22)
+    plan = plan_unit(
+        units[0], statistics_root=tmp_path / "K", today=today
+    )
+    assert len(plan.fetches) == 2
+    assert all(fetch.created_from == date(2024, 1, 1) for fetch in plan.fetches)
+    assert all(fetch.created_to == today for fetch in plan.fetches)
 
 
 def test_plan_all_units_covers_every_unit(tmp_path: Path) -> None:
