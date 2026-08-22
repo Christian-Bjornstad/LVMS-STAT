@@ -445,6 +445,26 @@ class BatchNavigationTests(unittest.TestCase):
 
         self.assertEqual(stages[-1], "defined_reports_contract_evaluation")
 
+    def test_navigator_waits_for_transient_origin_to_return(self) -> None:
+        state = NavigationState(destination=True)
+        origins = [OTHER_ORIGIN, OTHER_ORIGIN]
+        state.current_origin = (  # type: ignore[method-assign]
+            lambda: origins.pop(0) if origins else EXPECTED_ORIGIN
+        )
+        stages: list[str] = []
+        navigator = DefinedReportsNavigator(
+            EXPECTED_ORIGIN,
+            timeout_seconds=10,
+            clock=TickingClock(),
+            sleep=lambda seconds: None,
+        )
+
+        result = navigator.reach(state, state, stage=stages.append)
+
+        self.assertEqual(result.export.control.element_id, "export")
+        self.assertIn("defined_reports_wait_origin", stages)
+        self.assertEqual(stages[-1], "defined_reports_ready")
+
 
 if __name__ == "__main__":
     unittest.main()

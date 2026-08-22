@@ -31,6 +31,7 @@ FAILURE_LABELS = {
     "defined_reports": "navigering til Definerte rapporter",
     "defined_reports_probe_form": "kontroll av rapportskjemaet",
     "defined_reports_contract_origin": "kontroll av LVMS-adressen for rapportskjemaet",
+    "defined_reports_wait_origin": "venting på LVMS-siden etter intern overgang",
     "defined_reports_contract_metadata": "validering av rapportskjemaets kontrollmetadata",
     "defined_reports_contract_evaluation": "lesing av rapportskjemaets DOM",
     "defined_reports_find_direct": "søk etter Definerte rapporter i tram-lines",

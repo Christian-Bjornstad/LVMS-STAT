@@ -274,6 +274,15 @@ class DefinedReportsNavigator:
         used_section = False
         used_defined_reports = False
         while self._clock() < deadline:
+            try:
+                current_origin = page.current_origin()
+            except Exception:
+                stage("defined_reports_contract_evaluation")
+                raise
+            if current_origin != self._expected_origin:
+                stage("defined_reports_wait_origin")
+                self._sleep(0.1)
+                continue
             stage(
                 "defined_reports_wait_form"
                 if used_defined_reports
