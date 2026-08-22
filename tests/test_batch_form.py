@@ -218,7 +218,8 @@ class BatchFormTests(unittest.TestCase):
                 self.assertNotIn("!el.readOnly", script)
                 self.assertIn("if (!visible(frame)) continue;", script)
                 self.assertIn("ambiguous: true", script)
-                self.assertIn("[role='grid']", script)
+                self.assertNotIn("[role='grid']", script)
+                self.assertNotIn("[role='treegrid']", script)
                 self.assertIn("[id*='patient' i]", script)
 
     def test_role_discovery_rejects_unknown_absent_or_wrong_origin(self) -> None:

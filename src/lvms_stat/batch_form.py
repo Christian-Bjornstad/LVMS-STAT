@@ -77,7 +77,7 @@ def _role_script(role: str) -> str:
       rect.width > 0 && rect.height > 0 && !el.disabled;
   }};
   const excluded = (el) => Boolean(el.closest(
-    "[contenteditable='true'],[role='grid'],[role='treegrid']," +
+    "[contenteditable='true']," +
     "[id*='patient' i],[class*='patient' i],[id*='sample' i]," +
     "[class*='sample' i],[id*='result' i],[class*='result' i]"
   ));
