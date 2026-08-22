@@ -10,7 +10,7 @@ from lvms_stat.batch_form import (
 )
 from lvms_stat.batch_navigation import DefinedReportsPage
 from lvms_stat.report_job import ReportJob, validate_report_job
-from lvms_stat.workflow import ControlIdentity
+from lvms_stat.control_identity import ControlIdentity
 
 
 EXPECTED_ORIGIN = "https://lvms.example.invalid"

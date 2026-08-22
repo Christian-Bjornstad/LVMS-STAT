@@ -273,8 +273,6 @@ class SyntheticBatchHarness:
             EXPECTED_ORIGIN,
             root / "profile",
             root / "downloads",
-            root / "workflows",
-            root / "contracts",
         )
         harness = cls(root, config, page=None, navigation_route=[])  # type: ignore[arg-type]
         harness.page = SyntheticPage(harness)

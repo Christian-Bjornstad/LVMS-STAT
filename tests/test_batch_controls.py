@@ -7,7 +7,7 @@ from lvms_stat.batch_controls import (
     DocumentControlIdentity,
     validate_document_control,
 )
-from lvms_stat.workflow import ControlIdentity
+from lvms_stat.control_identity import ControlIdentity
 
 
 def control(tag: str, element_id: str) -> ControlIdentity:

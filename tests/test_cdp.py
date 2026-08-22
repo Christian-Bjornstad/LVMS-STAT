@@ -14,10 +14,9 @@ from lvms_stat.cdp import (
     CdpNavigationError,
     CdpTimeout,
     PageIdentity,
-    UnexpectedOriginError,
     discover_page,
 )
-from lvms_stat.workflow import ControlIdentity
+from lvms_stat.control_identity import ControlIdentity
 
 
 class FakeSocket:
@@ -238,28 +237,6 @@ class CdpTests(unittest.TestCase):
 
         self.assertEqual(str(caught.exception), "SSO did not return to the expected origin")
 
-    def test_inspection_always_passes_through_sanitizer(self) -> None:
-        page = BrowserPage(
-            FakeCdp(
-                [
-                    evaluated("https://lvms.example.invalid"),
-                    evaluated([{"tag": "BUTTON", "text": "Export", "value": "x"}]),
-                ]
-            )
-        )
-
-        with self.assertRaisesRegex(CdpProtocolError, "unsafe control metadata"):
-            page.inspect_controls("https://lvms.example.invalid")
-
-    def test_inspection_rechecks_origin_before_reading_controls(self) -> None:
-        cdp = FakeCdp([evaluated("https://unexpected.invalid")])
-        page = BrowserPage(cdp)
-
-        with self.assertRaises(UnexpectedOriginError):
-            page.inspect_controls("https://lvms.example.invalid")
-
-        self.assertEqual(len(cdp.calls), 1)
-
     def test_exposes_only_bounded_safe_evaluation_and_origin(self) -> None:
         cdp = FakeCdp([evaluated({"safe": True}), evaluated("https://lvms.example.invalid")])
         page = BrowserPage(cdp)
@@ -310,22 +287,6 @@ class CdpTests(unittest.TestCase):
 
         with self.assertRaisesRegex(CdpProtocolError, "unsupported key"):
             BrowserPage(FakeCdp([])).press_key("DELETE")
-
-    def test_control_resolution_normalizes_labels_like_contract_discovery(self) -> None:
-        cdp = FakeCdp([evaluated(1)])
-
-        token = BrowserPage(cdp).resolve_control(
-            ControlIdentity("SELECT", element_id="report-type", label="report type")
-        )
-
-        self.assertIsNotNone(token)
-        expression = cdp.calls[0][1]["expression"]  # type: ignore[index]
-        self.assertIn("if (aria) return clean(aria).slice(0, 120);", expression)
-        self.assertIn("return clean(Array.from(el.labels)", expression)
-        self.assertIn("previousElementSibling", expression)
-        self.assertIn("visible(el)", expression)
-        self.assertIn("!el.disabled", expression)
-        self.assertIn("!el.readOnly", expression)
 
     def test_resolves_control_in_one_named_accessible_frame(self) -> None:
         cdp = FakeCdp([evaluated(1)])

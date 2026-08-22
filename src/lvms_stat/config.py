@@ -9,21 +9,19 @@ from urllib.parse import urlsplit
 
 
 class ConfigError(ValueError):
-    """Local probe configuration is missing or unsafe."""
+    """Local browser configuration is missing or unsafe."""
 
 
 @dataclass(frozen=True)
-class ProbeConfig:
+class BrowserConfig:
     landing_url: str
     expected_origin: str
     profile_directory: Path
 
 
 @dataclass(frozen=True)
-class AppConfig(ProbeConfig):
+class AppConfig(BrowserConfig):
     download_directory: Path
-    workflow_directory: Path
-    contract_directory: Path
 
 
 def _required_text(raw: Mapping[str, object], key: str) -> str:
@@ -38,7 +36,7 @@ def validate_config(
     *,
     repository_root: Path,
     allowed_profile_root: Path | None = None,
-) -> ProbeConfig:
+) -> BrowserConfig:
     landing_url = _required_text(raw, "landing_url")
     parsed = urlsplit(landing_url)
 
@@ -87,32 +85,10 @@ def validate_config(
     if configured_origin is not None:
         if not isinstance(configured_origin, str) or configured_origin != expected_origin:
             raise ConfigError("expected_origin must exactly match the landing URL origin")
-    return ProbeConfig(
+    return BrowserConfig(
         landing_url=landing_url,
         expected_origin=expected_origin,
         profile_directory=profile_directory,
-    )
-
-
-def load_config(
-    path: Path,
-    *,
-    repository_root: Path,
-    allowed_profile_root: Path | None = None,
-) -> ProbeConfig:
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except OSError as exc:
-        raise ConfigError("configuration file could not be read") from exc
-    except json.JSONDecodeError as exc:
-        raise ConfigError("configuration file is not valid JSON") from exc
-
-    if not isinstance(raw, dict):
-        raise ConfigError("configuration must contain a JSON object")
-    return validate_config(
-        raw,
-        repository_root=repository_root,
-        allowed_profile_root=allowed_profile_root,
     )
 
 
@@ -145,27 +121,19 @@ def validate_app_config(
     allowed_local_root: Path | None = None,
 ) -> AppConfig:
     local = _local_root(allowed_local_root)
-    probe = validate_config(
+    browser = validate_config(
         raw,
         repository_root=repository_root,
         allowed_profile_root=local,
     )
     downloads = _external_directory(raw, "download_directory", repository_root)
-    workflows = _external_directory(raw, "workflow_directory", repository_root)
-    contracts = _external_directory(raw, "contract_directory", repository_root)
     if downloads == local or local not in downloads.parents:
         raise ConfigError("download_directory must be beneath local application data")
-    if workflows == local or local not in workflows.parents:
-        raise ConfigError("workflow_directory must be beneath local application data")
-    if contracts == local or local not in contracts.parents:
-        raise ConfigError("contract_directory must be beneath local application data")
     return AppConfig(
-        landing_url=probe.landing_url,
-        expected_origin=probe.expected_origin,
-        profile_directory=probe.profile_directory,
+        landing_url=browser.landing_url,
+        expected_origin=browser.expected_origin,
+        profile_directory=browser.profile_directory,
         download_directory=downloads,
-        workflow_directory=workflows,
-        contract_directory=contracts,
     )
 
 

@@ -19,12 +19,7 @@ from lvms_stat.batch_controls import (
     validate_document_control,
 )
 from lvms_stat.edge import EPHEMERAL_PORT_MAX, EPHEMERAL_PORT_MIN
-from lvms_stat.inspection import (
-    CONTROL_INSPECTION_SCRIPT,
-    InspectionError,
-    sanitize_controls,
-)
-from lvms_stat.workflow import ControlIdentity
+from lvms_stat.control_identity import ControlIdentity
 
 
 MAX_DISCOVERY_BYTES = 64 * 1024
@@ -53,10 +48,6 @@ class CdpNavigationError(CdpProtocolError):
         match = _NETWORK_ERROR_PATTERN.search(error_text if isinstance(error_text, str) else "")
         self.category = match.group(0) if match else "net::ERR_FAILED"
         super().__init__(f"Edge navigation failed: {self.category}")
-
-
-class UnexpectedOriginError(CdpError):
-    """Navigation did not finish on the configured LVMS origin."""
 
 
 @dataclass(frozen=True)
@@ -428,11 +419,6 @@ class BrowserPage:
         count = self._evaluate(expression, timeout_seconds=5)
         return token if count == 1 else None
 
-    def resolve_control(self, control: ControlIdentity) -> str | None:
-        return self.resolve_document_control(
-            DocumentControlIdentity("top", control)
-        )
-
     def _use_control(self, token: str, operation: str) -> object:
         if not isinstance(token, str) or len(token) != 32:
             raise CdpProtocolError("report control token is invalid")
@@ -535,13 +521,3 @@ return "selected";
         title = self._evaluate("document.title", timeout_seconds=2)
         safe_title = title.strip()[:120] if isinstance(title, str) else ""
         return PageIdentity(origin=expected_origin, title=safe_title)
-
-    def inspect_controls(self, expected_origin: str) -> list[dict[str, str]]:
-        origin = self._evaluate("location.origin", timeout_seconds=2)
-        if origin != expected_origin:
-            raise UnexpectedOriginError("Edge reached an unexpected origin")
-        raw_controls = self._evaluate(CONTROL_INSPECTION_SCRIPT, timeout_seconds=10)
-        try:
-            return sanitize_controls(raw_controls)
-        except InspectionError as exc:
-            raise CdpProtocolError("Edge returned unsafe control metadata") from exc

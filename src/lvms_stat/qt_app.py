@@ -51,7 +51,7 @@ def run_one_click_batch(
     runner: BatchRunner = _run_batch_silently,
     status: Callable[[str], None],
 ) -> int:
-    """Run the fixed local three-report batch without a separate doctor step."""
+    """Run the fixed local three-report batch from one app action."""
     status("Åpner LVMS og starter rapportene …")
 
     def report_progress(current: int, total: int) -> None:

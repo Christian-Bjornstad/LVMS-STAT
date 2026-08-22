@@ -4,7 +4,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from lvms_stat.workflow import ControlIdentity
+from lvms_stat.control_identity import ControlIdentity
 
 
 class BatchControlError(ValueError):

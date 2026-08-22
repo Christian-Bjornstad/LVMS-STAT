@@ -12,7 +12,7 @@ from lvms_stat.batch_runner import BatchRunnerDependencies, run_report_batch
 from lvms_stat.config import AppConfig
 from lvms_stat.downloads import DownloadError, DownloadStatus
 from lvms_stat.report_job import ReportJob, validate_report_job
-from lvms_stat.workflow import ControlIdentity
+from lvms_stat.control_identity import ControlIdentity
 
 
 EXPECTED_ORIGIN = "https://lvms.example.invalid"
@@ -74,8 +74,6 @@ class BatchHarness:
             EXPECTED_ORIGIN,
             root / "profile",
             root / "downloads",
-            root / "workflows",
-            root / "contracts",
         )
         self.failure_stage = failure_stage
         self.failed_job = failed_job
