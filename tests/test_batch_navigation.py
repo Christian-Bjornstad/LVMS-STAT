@@ -117,6 +117,67 @@ class NavigationState:
         if self.position == len(self.route):
             self.destination = True
 
+    def hover(self, identity: DocumentControlIdentity) -> None:
+        self.activate(identity)
+
+
+class ResponsiveNavigationState:
+    def __init__(self, layout: str) -> None:
+        self.layout = layout
+        self.stage = "landing"
+        self.origin = EXPECTED_ORIGIN
+        self.interactions: list[str] = []
+
+    def current_origin(self) -> str:
+        return self.origin
+
+    def evaluate_safe(self, expression: str, *, timeout_seconds: float = 2) -> object:
+        del timeout_seconds
+        if "LVMS_DEFINED_REPORTS_PAGE" in expression:
+            return page_contract_payload() if self.stage == "destination" else None
+        if "LVMS_NAVIGATION_ANCHOR" not in expression:
+            raise AssertionError("unexpected safe expression")
+        if "Definerte rapporter" in expression:
+            if self.layout == "direct" and self.stage == "landing":
+                return raw_document(
+                    "workflow_frame",
+                    raw_control("A", "defined_reports", label="defined reports"),
+                )
+            if self.stage == "section_open":
+                return raw_document(
+                    "top", raw_control("A", "defined_reports", label="defined reports")
+                )
+        if "Eksterne rapporter" in expression and (
+            (self.layout == "wide" and self.stage == "landing")
+            or self.stage == "more_open"
+        ):
+            return raw_document(
+                "top", raw_control("A", "section", label="external reports")
+            )
+        if "Mer" in expression and self.layout == "narrow" and self.stage == "landing":
+            return raw_document("top", raw_control("A", "more", label="more"))
+        return None
+
+    def activate(self, identity: DocumentControlIdentity) -> None:
+        element_id = identity.control.element_id
+        self.interactions.append(f"activate:{element_id}")
+        if element_id == "more" and self.stage == "landing":
+            self.stage = "more_open"
+        elif element_id == "defined_reports" and self.stage in {
+            "landing",
+            "section_open",
+        }:
+            self.stage = "destination"
+        else:
+            raise AssertionError("unexpected activation")
+
+    def hover(self, identity: DocumentControlIdentity) -> None:
+        element_id = identity.control.element_id
+        self.interactions.append(f"hover:{element_id}")
+        if element_id != "section" or self.stage not in {"landing", "more_open"}:
+            raise AssertionError("unexpected hover")
+        self.stage = "section_open"
+
 
 class TickingClock:
     def __init__(self) -> None:
@@ -167,9 +228,10 @@ class BatchNavigationTests(unittest.TestCase):
                         FakeSafePage(payload), EXPECTED_ORIGIN
                     )
 
-    def test_navigation_anchor_is_allowlisted_exact_and_top_document_only(self) -> None:
+    def test_navigation_anchor_accepts_allowlisted_control_in_same_origin_frame(self) -> None:
         payload = raw_document(
-            "top", raw_control("A", "defined_reports", label="defined reports")
+            "workflow_frame",
+            raw_control("A", "defined_reports", label="defined reports"),
         )
         page = FakeSafePage(payload)
 
@@ -179,11 +241,33 @@ class BatchNavigationTests(unittest.TestCase):
 
         self.assertIsNotNone(anchor)
         assert anchor is not None
-        self.assertEqual(anchor.frame, "top")
-        expression = page.expressions[0]
-        self.assertIn("matches.length === 1", expression)
+        self.assertEqual(anchor.frame, "workflow_frame")
         with self.assertRaises(BatchNavigationError):
             discover_navigation_anchor(page, EXPECTED_ORIGIN, "Arbitrary label")
+
+    def test_navigator_handles_direct_wide_and_narrow_responsive_routes(self) -> None:
+        expected = {
+            "direct": ["activate:defined_reports"],
+            "wide": ["hover:section", "activate:defined_reports"],
+            "narrow": [
+                "activate:more",
+                "hover:section",
+                "activate:defined_reports",
+            ],
+        }
+        for layout, interactions in expected.items():
+            with self.subTest(layout=layout):
+                state = ResponsiveNavigationState(layout)
+                navigator = DefinedReportsNavigator(
+                    EXPECTED_ORIGIN,
+                    timeout_seconds=20,
+                    clock=TickingClock(),
+                    sleep=lambda seconds: None,
+                )
+
+                navigator.reach(state, state)
+
+                self.assertEqual(state.interactions, interactions)
 
     def test_navigator_accepts_page_already_at_destination(self) -> None:
         state = NavigationState(destination=True)

@@ -19,7 +19,10 @@ class BatchNavigationError(RuntimeError):
 
 DEFINED_REPORTS_LABEL = "Definerte rapporter"
 REPORTS_SECTION_LABEL = "Eksterne rapporter"
-_NAVIGATION_LABELS = frozenset({DEFINED_REPORTS_LABEL, REPORTS_SECTION_LABEL})
+MORE_LABEL = "Mer"
+_NAVIGATION_LABELS = frozenset(
+    {DEFINED_REPORTS_LABEL, REPORTS_SECTION_LABEL, MORE_LABEL}
+)
 
 
 class SafePage(Protocol):
@@ -32,6 +35,8 @@ class SafePage(Protocol):
 
 class NavigationActions(Protocol):
     def activate(self, identity: DocumentControlIdentity) -> None: ...
+
+    def hover(self, identity: DocumentControlIdentity) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -142,10 +147,36 @@ def _navigation_anchor_script(label: str) -> str:
         + _IDENTITY_SCRIPT
         + f"""
   const wanted = {encoded_label};
-  const matches = Array.from(document.querySelectorAll("a"))
-    .filter((anchor) => visible(anchor) &&
-      String(anchor.textContent || "").replace(/\\s+/g, " ").trim() === wanted);
-  return matches.length === 1 ? identity(matches[0], "top") : null;
+  const normalizedWanted = clean(wanted);
+  const documents = [{{frame: "top", document}}];
+  for (const frame of Array.from(document.querySelectorAll("iframe,frame"))) {{
+    if (!visible(frame)) continue;
+    const frameName = String(
+      frame.getAttribute("id") || frame.getAttribute("name") || ""
+    ).trim();
+    if (!/^[A-Za-z0-9_-]{{1,120}}$/.test(frameName)) continue;
+    try {{
+      const frameDocument = frame.contentDocument;
+      if (frameDocument && frameDocument.documentElement)
+        documents.push({{frame: frameName, document: frameDocument}});
+    }} catch (error) {{
+      continue;
+    }}
+  }}
+  const matches = [];
+  for (const entry of documents) {{
+    for (const control of Array.from(
+      entry.document.querySelectorAll("a,button")
+    )) {{
+      if (!visible(control)) continue;
+      const exactControl = clean(control.textContent) === normalizedWanted;
+      const exactDescendant = Array.from(control.querySelectorAll("*"))
+        .some((node) => visible(node) && clean(node.textContent) === normalizedWanted);
+      if (exactControl || exactDescendant)
+        matches.push({{frame: entry.frame, control}});
+    }}
+  }}
+  return matches.length ? identity(matches[0].control, matches[0].frame) : null;
 }})()
 """
     ).strip()
@@ -205,7 +236,7 @@ def discover_navigation_anchor(
     if raw is None:
         return None
     identity = _document(raw)
-    if identity.frame != "top" or identity.control.tag != "A":
+    if identity.control.tag not in {"A", "BUTTON"}:
         raise BatchNavigationError("navigation control is invalid")
     return identity
 
@@ -230,6 +261,7 @@ class DefinedReportsNavigator:
         self, page: SafePage, actions: NavigationActions
     ) -> DefinedReportsPage:
         deadline = self._clock() + self._timeout_seconds
+        used_more = False
         used_section = False
         used_defined_reports = False
         while self._clock() < deadline:
@@ -254,8 +286,18 @@ class DefinedReportsNavigator:
                     page, self._expected_origin, REPORTS_SECTION_LABEL
                 )
                 if anchor is not None:
-                    actions.activate(anchor)
+                    actions.hover(anchor)
                     used_section = True
+                    _require_origin(page, self._expected_origin)
+                    self._sleep(0.1)
+                    continue
+            if not used_more:
+                anchor = discover_navigation_anchor(
+                    page, self._expected_origin, MORE_LABEL
+                )
+                if anchor is not None:
+                    actions.activate(anchor)
+                    used_more = True
                     _require_origin(page, self._expected_origin)
                     self._sleep(0.1)
                     continue

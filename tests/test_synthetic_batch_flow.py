@@ -205,10 +205,7 @@ class SyntheticPage:
 
     def activate_control(self, token: str) -> None:
         element_id = self.tokens[token]
-        if element_id == "section":
-            self.navigation_stage = 1
-            self.harness.navigation_route.append("section")
-        elif element_id == "defined_reports":
+        if element_id == "defined_reports":
             self.destination = True
             self.navigation_stage = 2
             self.harness.navigation_route.append("defined_reports")
@@ -223,6 +220,13 @@ class SyntheticPage:
             destination.write_bytes(b"metric,count\nsynthetic,1\n")
         else:
             raise AssertionError("unexpected synthetic activation")
+
+    def hover_control(self, token: str) -> None:
+        element_id = self.tokens[token]
+        if element_id != "section":
+            raise AssertionError("unexpected synthetic hover")
+        self.navigation_stage = 1
+        self.harness.navigation_route.append("section")
 
     def choose_native_option(self, token: str, text: str) -> bool:
         element_id = self.tokens[token]

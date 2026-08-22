@@ -340,6 +340,20 @@ class CdpTests(unittest.TestCase):
         expression = cdp.calls[0][1]["expression"]  # type: ignore[index]
         self.assertIn("control.ownerDocument.activeElement", expression)
 
+    def test_hover_moves_the_real_pointer_to_the_resolved_control(self) -> None:
+        cdp = FakeCdp([evaluated({"x": 125.5, "y": 42.25}), {}])
+        page = BrowserPage(cdp)
+
+        page.hover_control("a" * 32)
+
+        self.assertEqual(cdp.calls[1], (
+            "Input.dispatchMouseEvent",
+            {"type": "mouseMoved", "x": 125.5, "y": 42.25},
+        ))
+        expression = cdp.calls[0][1]["expression"]  # type: ignore[index]
+        self.assertIn("scrollIntoView", expression)
+        self.assertIn("frameElement", expression)
+
     def test_native_select_detection_is_safe_across_frame_realms(self) -> None:
         cdp = FakeCdp([evaluated("selected")])
 

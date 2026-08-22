@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 import secrets
 import time
@@ -443,6 +444,42 @@ class BrowserPage:
     def activate_control(self, token: str) -> None:
         if self._use_control(token, 'control.click(); return "ok";') != "ok":
             raise CdpProtocolError("report control is no longer available")
+
+    def hover_control(self, token: str) -> None:
+        point = self._use_control(
+            token,
+            r'''
+control.scrollIntoView({block: "center", inline: "center"});
+const rect = control.getBoundingClientRect();
+let x = rect.left + rect.width / 2;
+let y = rect.top + rect.height / 2;
+let view = control.ownerDocument.defaultView;
+while (view && view.frameElement) {
+  const frameRect = view.frameElement.getBoundingClientRect();
+  x += frameRect.left;
+  y += frameRect.top;
+  view = view.frameElement.ownerDocument.defaultView;
+}
+return {x, y};
+''',
+        )
+        if (
+            not isinstance(point, dict)
+            or set(point) != {"x", "y"}
+            or any(
+                isinstance(point[key], bool)
+                or not isinstance(point[key], (int, float))
+                or not math.isfinite(point[key])
+                or not 0 <= point[key] <= 100_000
+                for key in ("x", "y")
+            )
+        ):
+            raise CdpProtocolError("report control position is invalid")
+        self._connection.call(
+            "Input.dispatchMouseEvent",
+            {"type": "mouseMoved", "x": point["x"], "y": point["y"]},
+            timeout_seconds=5,
+        )
 
     def choose_native_option(self, token: str, text: str) -> bool:
         self._validate_text(text, maximum=200)

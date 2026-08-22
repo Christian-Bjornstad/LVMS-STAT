@@ -20,6 +20,8 @@ class ActionPage(Protocol):
 
     def activate_control(self, token: str) -> None: ...
 
+    def hover_control(self, token: str) -> None: ...
+
     def replace_focused_text(self, text: str) -> None: ...
 
     def choose_native_option(self, token: str, text: str) -> bool: ...
@@ -45,6 +47,9 @@ class DocumentDomActions:
 
     def activate(self, control: DocumentControlIdentity) -> None:
         self._page.activate_control(self._resolve(control))
+
+    def hover(self, control: DocumentControlIdentity) -> None:
+        self._page.hover_control(self._resolve(control))
 
     def replace_text(self, control: DocumentControlIdentity, text: str) -> None:
         token = self._resolve(control)
