@@ -83,6 +83,7 @@ class BatchHarness:
         self.export_counts = {key: 0 for key in JOB_KEYS}
         self.completed: list[str] = []
         self.browser_open_count = 0
+        self.download_setup_count = 0
 
     def cleanup(self) -> None:
         self.temporary.cleanup()
@@ -112,6 +113,7 @@ class BatchHarness:
 
             def configure_downloads(self, directory: Path) -> None:
                 directory.mkdir(parents=True, exist_ok=True)
+                harness.download_setup_count += 1
 
             def current_origin(self) -> str:
                 return EXPECTED_ORIGIN
@@ -257,6 +259,7 @@ class BatchRunnerTests(unittest.TestCase):
         )
         self.assertNotIn("ANALYSIS-ORDERED", output)
         self.assertNotIn(str(harness.config.download_directory), output)
+        self.assertEqual(harness.download_setup_count, 4)
 
     def test_reports_numeric_progress_without_job_or_report_details(self) -> None:
         harness = BatchHarness()

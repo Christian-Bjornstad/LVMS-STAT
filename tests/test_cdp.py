@@ -261,7 +261,11 @@ class CdpTests(unittest.TestCase):
                 cdp.calls[-1],
                 (
                     "Browser.setDownloadBehavior",
-                    {"behavior": "allow", "downloadPath": str(directory)},
+                    {
+                        "behavior": "allow",
+                        "downloadPath": str(directory),
+                        "eventsEnabled": True,
+                    },
                 ),
             )
 

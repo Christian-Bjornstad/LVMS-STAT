@@ -184,6 +184,7 @@ def run_report_batch(
             _write_review(stream, job)
             set_stage(f"report_{index}_export")
             contract = _wait_for_page(page, config.expected_origin, active)
+            page.configure_downloads(config.download_directory)
             detector = active.detector_factory(config.download_directory)
             detector.start()
             actions.activate(contract.export)

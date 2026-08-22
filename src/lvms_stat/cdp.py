@@ -273,7 +273,11 @@ class BrowserPage:
             raise CdpProtocolError("download directory is unavailable") from exc
         self._connection.call(
             "Browser.setDownloadBehavior",
-            {"behavior": "allow", "downloadPath": str(resolved)},
+            {
+                "behavior": "allow",
+                "downloadPath": str(resolved),
+                "eventsEnabled": True,
+            },
             timeout_seconds=5,
         )
 
