@@ -97,6 +97,19 @@ class DocumentDomActionsTests(unittest.TestCase):
             ],
         )
 
+    def test_commit_choice_refocuses_report_id_and_sends_enter_once(self) -> None:
+        page = ChoicePage()
+        actions = DocumentDomActions(page, EXPECTED_ORIGIN)  # type: ignore[arg-type]
+
+        actions.commit_choice(
+            DocumentControlIdentity("top", ControlIdentity("INPUT"))
+        )
+
+        self.assertEqual(
+            page.events,
+            [("focus", "a" * 32), ("key", "ENTER")],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

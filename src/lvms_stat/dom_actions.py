@@ -57,6 +57,11 @@ class DocumentDomActions:
         self._page.focus_control(token)
         self._page.replace_focused_text(text)
 
+    def commit_choice(self, control: DocumentControlIdentity) -> None:
+        token = self._resolve(control)
+        self._page.focus_control(token)
+        self._page.press_key("ENTER")
+
     def choose_text(self, control: DocumentControlIdentity, text: str) -> None:
         token = self._resolve(control)
         if self._page.choose_native_option(token, text):

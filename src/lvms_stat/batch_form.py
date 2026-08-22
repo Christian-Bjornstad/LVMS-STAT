@@ -58,6 +58,8 @@ class FormActions(Protocol):
 
     def choose_text(self, control: DocumentControlIdentity, text: str) -> None: ...
 
+    def commit_choice(self, control: DocumentControlIdentity) -> None: ...
+
     def replace_text(self, control: DocumentControlIdentity, text: str) -> None: ...
 
 
@@ -237,8 +239,7 @@ class BatchReportForm:
         self._actions.choose_text(category, job.category)
         report_id = self._wait_for("report_id")
         self._actions.choose_text(report_id, job.report_id)
-        notes = self._wait_for("notes")
-        self._actions.activate(notes)
+        self._actions.commit_choice(report_id)
         analysis_codes = self._wait_for("analysis_codes")
         created_from = self._wait_for("created_from")
         created_to = self._wait_for("created_to")

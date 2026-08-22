@@ -253,7 +253,8 @@ class SyntheticPage:
         self.values[self.focused] = text
 
     def press_key(self, key: str) -> None:
-        raise AssertionError(f"native synthetic selectors must not press {key}")
+        if key != "ENTER" or self.focused != "report-id":
+            raise AssertionError(f"unexpected synthetic key {key}")
 
 
 @dataclass

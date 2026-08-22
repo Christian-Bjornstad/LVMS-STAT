@@ -122,6 +122,7 @@ class FormState:
         self.missing_role = missing_role
         self.calls: list[tuple[str, str, str, str]] = []
         self.activated: list[str] = []
+        self.commits: list[str] = []
         self.page = self
         self.actions = self
 
@@ -143,6 +144,9 @@ class FormState:
 
     def activate(self, control: DocumentControlIdentity) -> None:
         self.activated.append(control.control.element_id)
+
+    def commit_choice(self, control: DocumentControlIdentity) -> None:
+        self.commits.append(control.control.element_id)
 
 
 class SlowParameterState(FormState):
@@ -288,7 +292,8 @@ class BatchFormTests(unittest.TestCase):
             ],
         )
 
-        self.assertEqual(state.activated, ["notes"])
+        self.assertEqual(state.activated, [])
+        self.assertEqual(state.commits, ["report-id"])
 
     def test_missing_stage_stops_before_later_actions(self) -> None:
         state = FormState(missing_role="report_id")
