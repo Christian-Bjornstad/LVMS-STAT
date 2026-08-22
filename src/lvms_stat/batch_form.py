@@ -25,6 +25,7 @@ _ROLE_ALIASES = {
     "created_from": ("created from", "analyse opprettet fom:"),
     "created_to": ("created to", "analyse opprettet tom:"),
 }
+_CLEAR_DYNAMIC_ROLES = ("analysis_codes", "created_from", "created_to")
 _ROLE_TAGS = {
     "category": frozenset({"INPUT", "SELECT"}),
     "report_id": frozenset({"INPUT", "SELECT"}),
@@ -211,7 +212,7 @@ class BatchReportForm:
             if all(
                 discover_report_role(self._page, self._expected_origin, role)
                 is None
-                for role in _ROLE_ALIASES
+                for role in _CLEAR_DYNAMIC_ROLES
             ):
                 return
             self._sleep(0.1)

@@ -150,8 +150,8 @@ class TickingClock:
 
 
 class ClearingPage:
-    def __init__(self, *, clears_after_category_checks: int | None) -> None:
-        self.clears_after_category_checks = clears_after_category_checks
+    def __init__(self, *, dynamic_roles_present: bool) -> None:
+        self.dynamic_roles_present = dynamic_roles_present
         self.category_checks = 0
 
     def current_origin(self) -> str:
@@ -161,11 +161,10 @@ class ClearingPage:
         del timeout_seconds
         if 'const requestedRole = "category"' in expression:
             self.category_checks += 1
-            if (
-                self.clears_after_category_checks is None
-                or self.category_checks <= self.clears_after_category_checks
-            ):
-                return ROLE_PAYLOADS["category"]
+            return ROLE_PAYLOADS["category"]
+        for role in ("analysis_codes", "created_from", "created_to"):
+            if f'const requestedRole = "{role}"' in expression:
+                return ROLE_PAYLOADS[role] if self.dynamic_roles_present else None
         return None
 
 
@@ -276,22 +275,23 @@ class BatchFormTests(unittest.TestCase):
             ],
         )
 
-    def test_wait_until_clear_requires_every_dynamic_role_to_be_absent(self) -> None:
-        page = ClearingPage(clears_after_category_checks=1)
+    def test_wait_until_clear_allows_persistent_empty_choice_controls(self) -> None:
+        page = ClearingPage(dynamic_roles_present=False)
         form = BatchReportForm(
             page,
             FormState().actions,
             EXPECTED_ORIGIN,
-            clock=lambda: 0.0,
+            timeout_seconds=2,
+            clock=TickingClock(),
             sleep=lambda seconds: None,
         )
 
         form.wait_until_clear()
 
-        self.assertEqual(page.category_checks, 2)
+        self.assertEqual(page.category_checks, 0)
 
     def test_wait_until_clear_times_out_while_a_dynamic_role_remains(self) -> None:
-        page = ClearingPage(clears_after_category_checks=None)
+        page = ClearingPage(dynamic_roles_present=True)
         form = BatchReportForm(
             page,
             FormState().actions,
