@@ -351,6 +351,41 @@ class CdpTests(unittest.TestCase):
         expression = cdp.calls[0][1]["expression"]  # type: ignore[index]
         self.assertIn("control.ownerDocument.activeElement", expression)
 
+    def test_activate_dispatches_real_pointer_click(self) -> None:
+        cdp = FakeCdp([evaluated({"x": 88.0, "y": 44.0}), {}, {}, {}])
+
+        BrowserPage(cdp).activate_control("a" * 32)
+
+        self.assertEqual(
+            cdp.calls[1:],
+            [
+                (
+                    "Input.dispatchMouseEvent",
+                    {"type": "mouseMoved", "x": 88.0, "y": 44.0},
+                ),
+                (
+                    "Input.dispatchMouseEvent",
+                    {
+                        "type": "mousePressed",
+                        "x": 88.0,
+                        "y": 44.0,
+                        "button": "left",
+                        "clickCount": 1,
+                    },
+                ),
+                (
+                    "Input.dispatchMouseEvent",
+                    {
+                        "type": "mouseReleased",
+                        "x": 88.0,
+                        "y": 44.0,
+                        "button": "left",
+                        "clickCount": 1,
+                    },
+                ),
+            ],
+        )
+
     def test_hover_moves_the_real_pointer_to_the_resolved_control(self) -> None:
         cdp = FakeCdp([evaluated({"x": 125.5, "y": 42.25}), {}])
         page = BrowserPage(cdp)

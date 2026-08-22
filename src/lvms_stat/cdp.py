@@ -443,11 +443,7 @@ class BrowserPage:
         ) != "ok":
             raise CdpProtocolError("report control is no longer available")
 
-    def activate_control(self, token: str) -> None:
-        if self._use_control(token, 'control.click(); return "ok";') != "ok":
-            raise CdpProtocolError("report control is no longer available")
-
-    def hover_control(self, token: str) -> None:
+    def _control_point(self, token: str) -> dict[str, float]:
         point = self._use_control(
             token,
             r'''
@@ -477,6 +473,31 @@ return {x, y};
             )
         ):
             raise CdpProtocolError("report control position is invalid")
+        return {"x": float(point["x"]), "y": float(point["y"])}
+
+    def activate_control(self, token: str) -> None:
+        point = self._control_point(token)
+        for params in (
+            {"type": "mouseMoved", **point},
+            {
+                "type": "mousePressed",
+                **point,
+                "button": "left",
+                "clickCount": 1,
+            },
+            {
+                "type": "mouseReleased",
+                **point,
+                "button": "left",
+                "clickCount": 1,
+            },
+        ):
+            self._connection.call(
+                "Input.dispatchMouseEvent", params, timeout_seconds=5
+            )
+
+    def hover_control(self, token: str) -> None:
+        point = self._control_point(token)
         self._connection.call(
             "Input.dispatchMouseEvent",
             {"type": "mouseMoved", "x": point["x"], "y": point["y"]},
