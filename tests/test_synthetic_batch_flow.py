@@ -224,7 +224,13 @@ class SyntheticPage:
                 f"synthetic-{self.harness.export_count}.csv"
             )
             destination.write_bytes(b"metric,count\nsynthetic,1\n")
-        elif element_id in {"notes", "analyses", "created-from", "created-to"}:
+        elif element_id in {
+            "report-id",
+            "notes",
+            "analyses",
+            "created-from",
+            "created-to",
+        }:
             pass
         else:
             raise AssertionError("unexpected synthetic activation")

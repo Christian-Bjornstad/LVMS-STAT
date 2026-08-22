@@ -74,6 +74,7 @@ class DocumentDomActionsTests(unittest.TestCase):
         self.assertEqual(
             page.events,
             [
+                ("activate", "a" * 32),
                 ("focus", "a" * 32),
                 ("replace", "REPORT-A"),
             ],
@@ -107,7 +108,11 @@ class DocumentDomActionsTests(unittest.TestCase):
 
         self.assertEqual(
             page.events,
-            [("focus", "a" * 32), ("key", "ENTER")],
+            [
+                ("activate", "a" * 32),
+                ("focus", "a" * 32),
+                ("key", "ENTER"),
+            ],
         )
 
 

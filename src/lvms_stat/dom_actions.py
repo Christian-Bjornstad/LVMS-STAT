@@ -59,6 +59,7 @@ class DocumentDomActions:
 
     def commit_choice(self, control: DocumentControlIdentity) -> None:
         token = self._resolve(control)
+        self._page.activate_control(token)
         self._page.focus_control(token)
         self._page.press_key("ENTER")
 
@@ -66,5 +67,6 @@ class DocumentDomActions:
         token = self._resolve(control)
         if self._page.choose_native_option(token, text):
             return
+        self._page.activate_control(token)
         self._page.focus_control(token)
         self._page.replace_focused_text(text)
