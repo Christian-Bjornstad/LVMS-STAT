@@ -286,7 +286,7 @@ class DefinedReportsNavigator:
                     page, self._expected_origin, REPORTS_SECTION_LABEL
                 )
                 if anchor is not None:
-                    actions.hover(anchor)
+                    actions.activate(anchor)
                     used_section = True
                     _require_origin(page, self._expected_origin)
                     self._sleep(0.1)
