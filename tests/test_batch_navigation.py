@@ -407,6 +407,19 @@ class BatchNavigationTests(unittest.TestCase):
 
         self.assertEqual(state.activations, ["defined_reports"])
 
+    def test_navigator_reports_bounded_navigation_substages(self) -> None:
+        state = NavigationState(("defined_reports",))
+        stages: list[str] = []
+        navigator = DefinedReportsNavigator(
+            EXPECTED_ORIGIN, clock=lambda: 0.0, sleep=lambda seconds: None
+        )
+
+        navigator.reach(state, state, stage=stages.append)
+
+        self.assertIn("defined_reports_find_direct", stages)
+        self.assertIn("defined_reports_activate_direct", stages)
+        self.assertEqual(stages[-1], "defined_reports_ready")
+
 
 if __name__ == "__main__":
     unittest.main()

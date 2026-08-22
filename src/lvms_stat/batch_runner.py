@@ -159,7 +159,7 @@ def run_report_batch(
             config.expected_origin, active.clock, active.sleeper
         )
         set_stage("defined_reports")
-        navigator.reach(page, actions)
+        navigator.reach(page, actions, stage=set_stage)
         form = active.form_factory(
             page,
             actions,

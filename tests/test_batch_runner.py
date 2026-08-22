@@ -135,8 +135,15 @@ class BatchHarness:
                 raise AssertionError("unexpected action")
 
         class Navigator:
-            def reach(self, page: object, actions: object) -> DefinedReportsPage:
+            def reach(
+                self,
+                page: object,
+                actions: object,
+                *,
+                stage: object,
+            ) -> DefinedReportsPage:
                 del page, actions
+                stage("defined_reports_ready")  # type: ignore[operator]
                 return page_contract()
 
         class Form:

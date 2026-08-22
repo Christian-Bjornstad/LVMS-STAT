@@ -277,44 +277,61 @@ class DefinedReportsNavigator:
         self._sleep = sleep
 
     def reach(
-        self, page: SafePage, actions: NavigationActions
+        self,
+        page: SafePage,
+        actions: NavigationActions,
+        *,
+        stage: Callable[[str], None] = lambda value: None,
     ) -> DefinedReportsPage:
         deadline = self._clock() + self._timeout_seconds
         used_more = False
         used_section = False
         used_defined_reports = False
         while self._clock() < deadline:
+            stage(
+                "defined_reports_wait_form"
+                if used_defined_reports
+                else "defined_reports_probe_form"
+            )
             contract = discover_defined_reports_page(page, self._expected_origin)
             if contract is not None:
+                stage("defined_reports_ready")
                 return contract
             if used_defined_reports:
                 self._sleep(0.1)
                 continue
             if not used_defined_reports:
+                stage("defined_reports_find_direct")
                 anchor = discover_navigation_anchor(
                     page, self._expected_origin, DEFINED_REPORTS_LABEL
                 )
                 if anchor is not None:
+                    stage("defined_reports_activate_direct")
                     actions.activate(anchor)
                     used_defined_reports = True
+                    stage("defined_reports_wait_form")
                     _require_origin(page, self._expected_origin)
                     self._sleep(0.1)
                     continue
             if not used_section:
+                stage("defined_reports_find_section")
                 anchor = discover_navigation_anchor(
                     page, self._expected_origin, REPORTS_SECTION_LABEL
                 )
                 if anchor is not None:
+                    stage("defined_reports_activate_section")
                     actions.activate(anchor)
                     used_section = True
                     _require_origin(page, self._expected_origin)
                     self._sleep(0.1)
                     continue
             if not used_more:
+                stage("defined_reports_find_more")
                 anchor = discover_navigation_anchor(
                     page, self._expected_origin, MORE_LABEL
                 )
                 if anchor is not None:
+                    stage("defined_reports_activate_more")
                     actions.activate(anchor)
                     used_more = True
                     _require_origin(page, self._expected_origin)

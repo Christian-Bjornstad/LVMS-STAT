@@ -110,6 +110,21 @@ class QtAppTests(unittest.TestCase):
         self.assertEqual(result, 2)
         self.assertEqual(statuses[-1], "Kjøringen stoppet ved: åpning av LVMS.")
 
+    def test_one_click_batch_reports_navigation_substage(self) -> None:
+        statuses: list[str] = []
+
+        def fail(config, jobs, keys, progress, failure):  # type: ignore[no-untyped-def]
+            del config, jobs, keys, progress
+            failure("defined_reports_wait_form")
+            return 2
+
+        run_one_click_batch(Path("config.json"), runner=fail, status=statuses.append)
+
+        self.assertEqual(
+            statuses[-1],
+            "Kjøringen stoppet ved: venting på rapportskjemaet etter klikk.",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
