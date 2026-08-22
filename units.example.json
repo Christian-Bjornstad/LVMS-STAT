@@ -1,0 +1,39 @@
+{
+  "statistics_root": "K:/Sensitivt/Klinikk/Sensitiv_mappe_MolPat/Hemato/Statistikk",
+  "units": {
+    "hemato": {
+      "label": "Hemato",
+      "reports": [
+        {
+          "job_key": "ordered",
+          "report_id": "PAT-DIT-ANTALL-OU"
+        },
+        {
+          "job_key": "answered",
+          "report_id": "PAT-DIT-RESULTATER-OU"
+        },
+        {
+          "job_key": "extraction",
+          "report_id": "PAT-DIT-EKSTRAKSJON-OU"
+        }
+      ]
+    },
+    "solide": {
+      "label": "Solide",
+      "reports": [
+        {
+          "job_key": "ordered",
+          "report_id": "PAT-DIT-ANTALL-SO"
+        },
+        {
+          "job_key": "answered",
+          "report_id": "PAT-DIT-RESULTATER-SO"
+        },
+        {
+          "job_key": "extraction",
+          "report_id": "PAT-DIT-EKSTRAKSJON-SO"
+        }
+      ]
+    }
+  }
+}
