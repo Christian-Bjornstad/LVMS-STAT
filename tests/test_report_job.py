@@ -113,7 +113,7 @@ class ReportJobTests(unittest.TestCase):
             for key in ("one", "two", "three")
         )
         invalid_keys = (
-            ("one",),
+            (),
             ("one", "one", "two"),
             ("one", "two", "missing"),
             ("one", "two", "three"),

@@ -347,15 +347,15 @@ class BatchRunnerTests(unittest.TestCase):
         self.assertEqual(harness.completed, ["ordered"])
         self.assertEqual(harness.export_counts["answered"], 0)
 
-    def test_invalid_timeout_and_wrong_job_count_fail_before_edge_launch(self) -> None:
-        for timeout, keys in ((0, JOB_KEYS), (600, ("ordered",))):
-            with self.subTest(timeout=timeout, keys=keys):
+    def test_invalid_timeout_fails_before_edge_launch(self) -> None:
+        for timeout in (0, 6001):
+            with self.subTest(timeout=timeout):
                 harness = BatchHarness()
                 self.addCleanup(harness.cleanup)
                 result = run_report_batch(
                     Path("config.json"),
                     Path("jobs.json"),
-                    keys,
+                    JOB_KEYS,
                     dependencies=harness.dependencies(),
                     output=io.StringIO(),
                     timeout_seconds=timeout,
@@ -363,6 +363,19 @@ class BatchRunnerTests(unittest.TestCase):
                 )
                 self.assertEqual(result, 2)
                 self.assertEqual(harness.browser_open_count, 0)
+
+    def test_single_job_key_batch_completes_without_edge(self) -> None:
+        harness = BatchHarness()
+        self.addCleanup(harness.cleanup)
+        result = run_report_batch(
+            Path("config.json"),
+            Path("jobs.json"),
+            ("ordered",),
+            dependencies=harness.dependencies(),
+            output=io.StringIO(),
+            repository_root=harness.config.profile_directory.parent,
+        )
+        self.assertEqual(result, 0)
 
     def test_open_failure_reports_cleanup_incomplete_without_internal_detail(self) -> None:
         harness = BatchHarness("open_cleanup")

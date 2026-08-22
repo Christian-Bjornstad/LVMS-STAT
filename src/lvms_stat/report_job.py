@@ -84,8 +84,8 @@ def batch_filename(job: ReportJob) -> str:
 def select_batch_jobs(
     jobs: tuple[ReportJob, ...], job_keys: tuple[str, ...]
 ) -> tuple[ReportJob, ...]:
-    if len(job_keys) != 3 or len(set(job_keys)) != 3:
-        raise ReportJobError("batch requires three distinct job keys")
+    if not 1 <= len(job_keys) <= 3 or len(set(job_keys)) != len(job_keys):
+        raise ReportJobError("batch requires one to three distinct job keys")
     jobs_by_key = {job.job_key: job for job in jobs}
     if any(key not in jobs_by_key for key in job_keys):
         raise ReportJobError("batch job was not found")
