@@ -91,7 +91,7 @@ class DocumentDomActionsTests(unittest.TestCase):
             ],
         )
 
-    def test_text_field_is_activated_before_replacing_grid_value(self) -> None:
+    def test_grid_value_is_replaced_without_refocusing_after_activation(self) -> None:
         page = RefreshingGridPage()
         actions = DocumentDomActions(page, EXPECTED_ORIGIN)  # type: ignore[arg-type]
 
@@ -104,10 +104,10 @@ class DocumentDomActionsTests(unittest.TestCase):
             page.events,
             [
                 ("activate", f"{1:032x}"),
-                ("focus", f"{2:032x}"),
                 ("replace", "VALUE-A"),
             ],
         )
+        self.assertEqual(page.resolve_count, 1)
 
     def test_commit_choice_refocuses_report_id_and_sends_enter_once(self) -> None:
         page = ChoicePage()
