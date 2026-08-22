@@ -66,7 +66,13 @@ def process_unit(
     ):
         if not report_id:
             continue
-        files = find_report_archives(raa_dir, report_id)
+        # files live directly under raa/ as STEM__from__to.csv, and may
+        # alternatively be nested in raa/<report_id>/
+        files = sorted(raa_dir.glob(f"{report_id}__*.csv"))
+        if not files:
+            nested = raa_dir / report_id
+            if nested.is_dir():
+                files = sorted(nested.glob("*.csv"))
         if not files:
             continue
         header, rows = merge_report_csvs(files)
