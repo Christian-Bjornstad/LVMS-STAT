@@ -24,18 +24,31 @@ from lvms_stat.post_processing import process_unit
 Fetcher = Callable[..., FetchOutcome]
 
 
-def _find_lookup(config_path: Path, statistics_root: Path) -> Path | None:
+def _find_lookup(
+    config_path: Path,
+    statistics_root: Path,
+    *,
+    unit_key: str | None = None,
+) -> Path | None:
     """Find Analyse_lookup.xlsx in likely places (first hit wins).
 
-    Order: repo/config directory, statistics root, repository scripts
-    folder, and finally the Downloads/Statistikk folder where the R era
-    kept it. Any of these can be a symlink/copy on the work PC.
+    Order: unit folder under the statistics root (e.g. Solide/ has its
+    own lookup), config directory, statistics root, repository root, and
+    finally the Downloads/Statistikk folder where the R era kept it.
+    Any of these can be a symlink/copy on the work PC.
     """
-    candidates = [
+    candidates = []
+    if unit_key:
+        candidates.append(statistics_root / unit_key / "Analyse_lookup.xlsx")
+    candidates += [
         config_path.with_name("Analyse_lookup.xlsx"),
         statistics_root / "Analyse_lookup.xlsx",
         Path(__file__).resolve().parents[2] / "Analyse_lookup.xlsx",
         Path.home() / "Downloads" / "Statistikk" / "Analyse_lookup.xlsx",
+        (
+            Path.home() / "Downloads" / "Statistikk" / "Solide"
+            / "Analyse_lookup.xlsx"
+        ),
     ]
     for candidate in candidates:
         try:
@@ -71,7 +84,9 @@ def _process_after_fetch(
         report_ids = {
             report.job_key: report.report_id for report in unit.reports
         }
-        lookup_path = _find_lookup(config_path, Path(statistics_root_str))
+        lookup_path = _find_lookup(
+            config_path, Path(statistics_root_str), unit_key=unit_key
+        )
         if lookup_path is None:
             if stream is not None:
                 stream.write(
@@ -79,7 +94,12 @@ def _process_after_fetch(
                     "prosessert ble ikke oppdatert\n"
                 )
             return
-        outcome = process_unit(root, lookup_path, report_ids)
+        outcome = process_unit(
+            root,
+            lookup_path,
+            report_ids,
+            profile=getattr(unit, "profile", "hemato"),
+        )
         if stream is not None and (
             outcome.antall_rows or outcome.resultater_rows
         ):

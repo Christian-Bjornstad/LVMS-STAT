@@ -44,11 +44,39 @@ RESULTATER_COLUMNS = (
     "Svarfrist",
 )
 
+# Solide export (Solide_Statistikk.R -> resultater_super2): 13 columns,
+# no Nukleinsyre, keeps Ekstraksjon.Analyse and Starttid.svartid.
+SOLIDE_RESULTATER_COLUMNS = (
+    "Materiale",
+    "Analyse",
+    "Rapportgruppe",
+    "Tidspunkt.prøvetaking",
+    "Tidspunkt.opprettet",
+    "Tidspunkt.analysebestilling",
+    "Tidspunkt.analyseresultat",
+    "Tidspunkt.godkjenning",
+    "Ekstraksjon.Analyse",
+    "Ekstraksjon.analysebestilling",
+    "Ekstraksjon.ferdig",
+    "Starttid.svartid",
+    "Svarfrist",
+)
+
 ANTALL_COLUMNS = (
     "Analyse",
     "Tidspunkt.analysebestilling",
     "Nukleinsyre",
     "Rapportgruppe",
+    "Maaned",
+)
+
+# Solide antall (antall_super2 = select(c(2, 5, 8, 9, 11))): Analyse,
+# Tidspunkt.analysebestilling, Rapportgruppe, Svarfrist, Maaned.
+SOLIDE_ANTALL_COLUMNS = (
+    "Analyse",
+    "Tidspunkt.analysebestilling",
+    "Rapportgruppe",
+    "Svarfrist",
     "Maaned",
 )
 
@@ -203,6 +231,7 @@ def build_antall(
                 ),
                 "Nukleinsyre": entry.get("Nukleinsyre", ""),
                 "Rapportgruppe": entry.get("Rapportgruppe", ""),
+                "Svarfrist": entry.get("Svarfrist", ""),
                 "Maaned": str(opprettet.month) if opprettet else "",
             }
         )
@@ -388,6 +417,106 @@ def build_resultater(
     return out
 
 
+def _best_extraction_solide(
+    godkjenning: datetime | None,
+    extractions: Sequence[Mapping[str, object]],
+) -> dict[str, object] | None:
+    """Solide rule (Solide_Statistikk.R §8-9): latest finished extraction
+    on the same Sample.ID that finished before the result approval.
+
+    No nucleic-acid priority - input is pre-sorted finished-descending,
+    so the first candidate meeting the deadline is the answer.
+    """
+    if godkjenning is None:
+        return None
+    for extraction in extractions:
+        finished = extraction["ferdig"]
+        assert isinstance(finished, datetime)
+        if finished <= godkjenning:
+            return dict(extraction)
+    return None
+
+
+def build_resultater_solide(
+    result_rows: Iterable[Mapping[str, str]],
+    extraction_rows: Iterable[Mapping[str, str]],
+    lookup: Mapping[str, Mapping[str, str]],
+) -> list[dict[str, str]]:
+    """Solide resultater: 13-column export with Starttid.svartid."""
+    by_sample: dict[str, list[dict[str, object]]] = {}
+    for row in extraction_rows:
+        sample_id = clean_text(row.get("Sample.ID"))
+        ferdig = parse_tidspunkt(row.get("Tidspunkt.analyseresultat"))
+        if ferdig is None:
+            continue  # candidates without a finished time can never match
+        by_sample.setdefault(sample_id, []).append(
+            {
+                "analyse": clean_text(row.get("Analyse")),
+                "bestilling": parse_tidspunkt(
+                    row.get("Tidspunkt.analysebestilling")
+                ),
+                "ferdig": ferdig,
+            }
+        )
+    for rows in by_sample.values():
+        rows.sort(key=lambda e: e["ferdig"], reverse=True)
+
+    out: list[dict[str, str]] = []
+    for row in result_rows:
+        analyse = clean_text(row.get("Analyse"))
+        entry = lookup.get(analyse, {})
+        sample_id = clean_text(row.get("Sample.ID"))
+        materiale = clean_text(row.get("Materiale"))
+        bestilling = parse_tidspunkt(row.get("Tidspunkt.analysebestilling"))
+        godkjenning = parse_tidspunkt(row.get("Tidspunkt.godkjenning"))
+
+        chosen = _best_extraction_solide(
+            godkjenning, by_sample.get(sample_id, [])
+        )
+        if chosen is None:
+            ekstr_analyse = ""
+            ekstr_bestilling = None
+            ekstr_ferdig = None
+        else:
+            ekstr_analyse = str(chosen["analyse"])
+            ekstr_bestilling = chosen["bestilling"]
+            ekstr_ferdig = chosen["ferdig"]
+            assert isinstance(ekstr_bestilling, datetime) or ekstr_bestilling is None
+            assert isinstance(ekstr_ferdig, datetime) or ekstr_ferdig is None
+
+        if bestilling is not None and ekstr_ferdig is not None:
+            starttid = max(bestilling, ekstr_ferdig)
+        elif bestilling is not None:
+            starttid = bestilling
+        else:
+            starttid = ekstr_ferdig
+
+        out.append(
+            {
+                "Materiale": materiale,
+                "Analyse": analyse,
+                "Rapportgruppe": entry.get("Rapportgruppe", ""),
+                "Tidspunkt.prøvetaking": _fmt(
+                    parse_tidspunkt(row.get("Tidspunkt.prøvetaking"))
+                ),
+                "Tidspunkt.opprettet": _fmt(
+                    parse_tidspunkt(row.get("Tidspunkt.opprettet"))
+                ),
+                "Tidspunkt.analysebestilling": _fmt(bestilling),
+                "Tidspunkt.analyseresultat": _fmt(
+                    parse_tidspunkt(row.get("Tidspunkt.analyseresultat"))
+                ),
+                "Tidspunkt.godkjenning": _fmt(godkjenning),
+                "Ekstraksjon.Analyse": ekstr_analyse,
+                "Ekstraksjon.analysebestilling": _fmt(ekstr_bestilling),
+                "Ekstraksjon.ferdig": _fmt(ekstr_ferdig),
+                "Starttid.svartid": _fmt(starttid),
+                "Svarfrist": entry.get("Svarfrist", ""),
+            }
+        )
+    return out
+
+
 def write_excel_csv2(
     rows: Iterable[Mapping[str, str]],
     path: Path,
@@ -408,15 +537,36 @@ def process_reports(
     ekstraksjon_path: Path,
     lookup_path: Path,
     output_dir: Path,
+    *,
+    profile: str = "hemato",
 ) -> dict[str, int]:
-    """Full pipeline over one unit's reports; returns exported row counts."""
+    """Full pipeline over one unit's reports; returns exported row counts.
+
+    ``profile`` selects the export dialect: ``"hemato"`` (default, the
+    original 12/5-column Hemato_Statistikk.R layout) or ``"solide"``
+    (the 13/5-column Solide_Statistikk.R layout with its own simpler
+    extraction rule).
+    """
     lookup = load_lookup(lookup_path)
     antall = build_antall(read_lvms_csv(antall_path), lookup)
-    resultater = build_resultater(
-        read_lvms_csv(resultater_path),
-        read_lvms_csv(ekstraksjon_path),
-        lookup,
+    if profile == "solide":
+        resultater = build_resultater_solide(
+            read_lvms_csv(resultater_path),
+            read_lvms_csv(ekstraksjon_path),
+            lookup,
+        )
+        antall_columns = SOLIDE_ANTALL_COLUMNS
+        resultater_columns = SOLIDE_RESULTATER_COLUMNS
+    else:
+        resultater = build_resultater(
+            read_lvms_csv(resultater_path),
+            read_lvms_csv(ekstraksjon_path),
+            lookup,
+        )
+        antall_columns = ANTALL_COLUMNS
+        resultater_columns = RESULTATER_COLUMNS
+    write_excel_csv2(antall, output_dir / "antall.csv", antall_columns)
+    write_excel_csv2(
+        resultater, output_dir / "resultater.csv", resultater_columns
     )
-    write_excel_csv2(antall, output_dir / "antall.csv", ANTALL_COLUMNS)
-    write_excel_csv2(resultater, output_dir / "resultater.csv", RESULTATER_COLUMNS)
     return {"antall": len(antall), "resultater": len(resultater)}

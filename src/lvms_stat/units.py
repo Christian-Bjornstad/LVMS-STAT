@@ -40,6 +40,9 @@ class Unit:
     label: str
     reports: tuple[UnitReport, ...]
     analysis_codes: tuple[str, ...]
+    # Processing dialect for the R-port export: "hemato" (default) or
+    # "solide" - see lvms_stat.processing.process_reports.
+    profile: str = "hemato"
 
     def report_by_key(self, job_key: str) -> UnitReport:
         for report in self.reports:
@@ -102,6 +105,13 @@ def _analysis_codes(raw: Mapping[str, object]) -> tuple[str, ...]:
     return tuple(codes)
 
 
+def _profile(raw: Mapping[str, object]) -> str:
+    value = raw.get("profile", "hemato")
+    if not isinstance(value, str) or value not in ("hemato", "solide"):
+        raise UnitsConfigError("unit profile must be \"hemato\" or \"solide\"")
+    return value
+
+
 def validate_units(raw: object) -> tuple[Unit, ...]:
     if not isinstance(raw, dict) or not isinstance(raw.get("units"), dict):
         raise UnitsConfigError("units configuration must contain a units object")
@@ -123,6 +133,7 @@ def validate_units(raw: object) -> tuple[Unit, ...]:
                 label=_label(raw_unit, key),
                 reports=_reports(raw_unit),
                 analysis_codes=_analysis_codes(raw_unit),
+                profile=_profile(raw_unit),
             )
         )
     return tuple(units)

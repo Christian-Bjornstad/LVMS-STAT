@@ -37,6 +37,8 @@ def process_unit(
     unit_dir: Path,
     lookup_path: Path,
     report_ids: Mapping[str, str],
+    *,
+    profile: str = "hemato",
 ) -> ProcessOutcome:
     """Merge + process all reports of one unit.
 
@@ -45,6 +47,9 @@ def process_unit(
         {"ordered": "PAT-DIT-ANTALL-OU",
          "answered": "PAT-DIT-RESULTATER-OU",
          "extraction": "PAT-DIT-EKSTRAKSJON-OU"}
+
+    ``profile`` selects the processing dialect (see
+    :func:`lvms_stat.processing.process_reports`).
 
     The merged raw file is written next to the archives as
     ``merged/<report_id>.csv``, then fed through the R-port which writes
@@ -96,6 +101,7 @@ def process_unit(
         inputs.get("extraction", inputs["answered"]),
         lookup_path,
         output_dir,
+        profile=profile,
     )
     return ProcessOutcome(
         antall_rows=counts["antall"],

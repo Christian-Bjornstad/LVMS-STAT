@@ -26,9 +26,10 @@ VALID = {
             ],
         },
         "solide": {
+            "profile": "solide",
             "analysis_codes": ["EKSTRAKSJON-SO-OU"],
             "reports": [
-                {"job_key": "ordered", "report_id": "PAT-DIT-ANTALL-SO"},
+                {"job_key": "ordered", "report_id": "PAT-DIT-ANTALL-OU"},
             ]
         },
     }
@@ -41,6 +42,25 @@ def test_validate_units_builds_units() -> None:
     hemato = units[0]
     assert hemato.label == "Hemato"
     assert hemato.report_by_key("ordered").report_id == "PAT-DIT-ANTALL-OU"
+
+
+def test_profile_defaults_to_hemato_and_validates() -> None:
+    units = validate_units(VALID)
+    assert units[0].profile == "hemato"
+    assert units[1].profile == "solide"
+    invalid = {
+        "units": {
+            "x": {
+                "profile": "ukjent",
+                "analysis_codes": ["JAK2-V617F-OU"],
+                "reports": [
+                    {"job_key": "ordered", "report_id": "PAT-DIT-ANTALL-OU"}
+                ],
+            }
+        }
+    }
+    with pytest.raises(UnitsConfigError):
+        validate_units(invalid)
 
 
 def test_label_falls_back_to_key() -> None:

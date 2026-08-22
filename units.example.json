@@ -32,13 +32,14 @@
     },
     "solide": {
       "label": "Solide",
+      "profile": "solide",
       "analysis_codes": [
         "EKSTRAKSJON-SO-OU"
       ],
       "reports": [
-        { "job_key": "ordered", "report_id": "PAT-DIT-ANTALL-SO" },
-        { "job_key": "answered", "report_id": "PAT-DIT-RESULTATER-SO" },
-        { "job_key": "extraction", "report_id": "PAT-DIT-EKSTRAKSJON-SO" }
+        { "job_key": "ordered", "report_id": "PAT-DIT-ANTALL-OU" },
+        { "job_key": "answered", "report_id": "PAT-DIT-RESULTATER-OU" },
+        { "job_key": "extraction", "report_id": "PAT-DIT-EKSTRAKSJON-OU" }
       ]
     }
   }
