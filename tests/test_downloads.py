@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import errno
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from lvms_stat.downloads import (
     CsvArrivalDetector,
@@ -109,6 +111,18 @@ class DownloadTests(unittest.TestCase):
             finalize_csv(second, destination_directory, destination.name)
         self.assertTrue(second.is_file())
         self.assertEqual(destination.read_bytes(), b"existing")
+
+    def test_finalize_csv_moves_across_filesystems(self) -> None:
+        source = self.root / "generated.csv"
+        source.write_bytes(b"synthetic")
+        destination_directory = self.root / "rådata"
+        destination_directory.mkdir()
+
+        with patch("shutil.os.rename", side_effect=OSError(errno.EXDEV, "cross-device")):
+            destination = finalize_csv(source, destination_directory, "report.csv")
+
+        self.assertEqual(destination.read_bytes(), b"synthetic")
+        self.assertFalse(source.exists())
 
     def test_finalize_csv_rejects_unsafe_paths_and_suffixes(self) -> None:
         source = self.root / "source.csv"

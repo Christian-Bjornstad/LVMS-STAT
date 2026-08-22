@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -39,7 +40,7 @@ def finalize_csv(source: Path, directory: Path, filename: str) -> Path:
     ):
         raise DownloadError("CSV finalization target is invalid")
     try:
-        resolved_source.rename(destination)
+        shutil.move(str(resolved_source), str(destination))
     except OSError as exc:
         raise DownloadError("CSV finalization failed") from exc
     return destination
