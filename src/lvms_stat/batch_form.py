@@ -107,7 +107,7 @@ def _role_script(role: str) -> str:
       .map((item) => item.textContent).join(" ")).slice(0, 120);
     const container = el.closest("td,th,[role='cell'],[role='gridcell']");
     const previous = container ? container.previousElementSibling : null;
-    if (previous && !previous.querySelector("input,select,textarea,button,a"))
+    if (previous)
       return clean(previous.textContent).slice(0, 120);
     return "";
   }};

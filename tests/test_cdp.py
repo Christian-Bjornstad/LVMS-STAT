@@ -307,6 +307,7 @@ class CdpTests(unittest.TestCase):
         self.assertIn("visible(frame)", expression)
         self.assertIn("!el.disabled", expression)
         self.assertNotIn("!el.readOnly", expression)
+        self.assertNotIn("!previous.querySelector", expression)
 
     def test_document_resolution_requires_exactly_one_match(self) -> None:
         identity = DocumentControlIdentity(
