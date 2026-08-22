@@ -214,6 +214,7 @@ class BatchNavigationTests(unittest.TestCase):
         expression = page.expressions[0]
         self.assertNotIn(".src", expression)
         self.assertNotIn(".value", expression)
+        self.assertNotIn("!el.readOnly", expression)
         self.assertIn("visible(frame)", expression)
         self.assertIn("data-datafield='reportType'", expression)
         self.assertIn("button#clear[name='menu'][type='button']", expression)

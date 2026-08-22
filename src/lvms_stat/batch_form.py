@@ -68,7 +68,7 @@ def _role_script(role: str) -> str:
     const style = el.ownerDocument.defaultView.getComputedStyle(el);
     const rect = el.getBoundingClientRect();
     return style.display !== "none" && style.visibility !== "hidden" &&
-      rect.width > 0 && rect.height > 0 && !el.disabled && !el.readOnly;
+      rect.width > 0 && rect.height > 0 && !el.disabled;
   }};
   const excluded = (el) => Boolean(el.closest(
     "[contenteditable='true'],[role='grid'],[role='treegrid']," +

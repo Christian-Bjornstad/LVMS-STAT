@@ -197,6 +197,7 @@ class BatchFormTests(unittest.TestCase):
                     "sessionStorage",
                 ):
                     self.assertNotIn(forbidden, script)
+                self.assertNotIn("!el.readOnly", script)
                 self.assertIn("if (!visible(frame)) continue;", script)
                 self.assertIn("ambiguous: true", script)
                 self.assertIn("[role='grid']", script)
