@@ -43,6 +43,9 @@ class ChoicePage:
     def focus_control(self, token: str) -> None:
         self.events.append(("focus", token))
 
+    def activate_control(self, token: str) -> None:
+        self.events.append(("activate", token))
+
     def replace_focused_text(self, text: str) -> None:
         self.events.append(("replace", text))
 
@@ -74,6 +77,24 @@ class DocumentDomActionsTests(unittest.TestCase):
                 ("focus", "a" * 32),
                 ("replace", "REPORT-A"),
                 ("key", "ENTER"),
+            ],
+        )
+
+    def test_text_field_is_activated_before_replacing_grid_value(self) -> None:
+        page = ChoicePage()
+        actions = DocumentDomActions(page, EXPECTED_ORIGIN)  # type: ignore[arg-type]
+
+        actions.replace_text(
+            DocumentControlIdentity("top", ControlIdentity("INPUT")),
+            "VALUE-A",
+        )
+
+        self.assertEqual(
+            page.events,
+            [
+                ("activate", "a" * 32),
+                ("focus", "a" * 32),
+                ("replace", "VALUE-A"),
             ],
         )
 

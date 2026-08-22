@@ -407,7 +407,7 @@ class BrowserPage:
   const matches = Array.from(selectedDocument.querySelectorAll(
     "a,button,input,select,span,td,textarea"
   ))
-    .filter((el) => visible(el) && !el.disabled && !el.readOnly &&
+    .filter((el) => visible(el) && !el.disabled &&
       el.tagName === wanted.tag &&
       String(el.getAttribute("type") || "").slice(0, 120) === wanted.type &&
       String(el.getAttribute("id") || "").slice(0, 120) === wanted.id &&
