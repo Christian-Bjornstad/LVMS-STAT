@@ -219,6 +219,10 @@ class BatchNavigationTests(unittest.TestCase):
         self.assertIn("button#clear[name='menu'][type='button']", expression)
         self.assertIn("button#export[name='menu'][type='button']", expression)
         self.assertIn('documents.push({frame: frameName, document: frameDocument})', expression)
+        self.assertIn("if (!jobTypes.length)", expression)
+        self.assertIn("if (!clears.length)", expression)
+        self.assertIn("if (!exports.length)", expression)
+        self.assertNotIn("length !== 1", expression)
 
     def test_page_rejects_absent_or_wrong_origin_contract(self) -> None:
         self.assertIsNone(
@@ -235,6 +239,14 @@ class BatchNavigationTests(unittest.TestCase):
 
         with self.assertRaises(BatchNavigationError):
             discover_defined_reports_page(FakeSafePage(malformed), EXPECTED_ORIGIN)
+
+    def test_page_reports_sanitized_missing_control(self) -> None:
+        with self.assertRaisesRegex(
+            BatchNavigationError, "Defined Reports job_type is missing"
+        ):
+            discover_defined_reports_page(
+                FakeSafePage({"missing": "job_type"}), EXPECTED_ORIGIN
+            )
 
     def test_navigation_anchor_accepts_allowlisted_control_in_same_origin_frame(self) -> None:
         payload = raw_document(
@@ -443,6 +455,18 @@ class BatchNavigationTests(unittest.TestCase):
             navigator.reach(page, NavigationState().actions, stage=stages.append)
 
         self.assertEqual(stages[-1], "defined_reports_contract_metadata")
+
+    def test_navigator_reports_missing_control_stage(self) -> None:
+        page = FakeSafePage({"missing": "export"})
+        stages: list[str] = []
+        navigator = DefinedReportsNavigator(
+            EXPECTED_ORIGIN, clock=lambda: 0.0, sleep=lambda seconds: None
+        )
+
+        with self.assertRaises(BatchNavigationError):
+            navigator.reach(page, NavigationState().actions, stage=stages.append)
+
+        self.assertEqual(stages[-1], "defined_reports_missing_export")
 
     def test_navigator_reports_contract_evaluation_failure(self) -> None:
         class BrokenPage:

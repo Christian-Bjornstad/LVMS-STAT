@@ -133,8 +133,9 @@ DEFINED_REPORTS_PAGE_SCRIPT = (
       "button#export[name='menu'][type='button']"
     )).filter(visible)) exports.push({frame: entry.frame, control});
   }
-  if (clears.length !== 1 || exports.length !== 1) return null;
-  if (jobTypes.length !== 1) return null;
+  if (!jobTypes.length) return {missing: "job_type"};
+  if (!clears.length) return {missing: "clear"};
+  if (!exports.length) return {missing: "export"};
   return {
     job_type: identity(jobTypes[0].control, jobTypes[0].frame),
     clear: identity(clears[0].control, clears[0].frame),
@@ -217,6 +218,12 @@ def discover_defined_reports_page(
     raw = page.evaluate_safe(DEFINED_REPORTS_PAGE_SCRIPT, timeout_seconds=10)
     if raw is None:
         return None
+    if isinstance(raw, Mapping) and set(raw) == {"missing"}:
+        missing = raw["missing"]
+        if missing in {"job_type", "clear", "export"}:
+            raise BatchNavigationError(
+                f"Defined Reports {missing} is missing"
+            )
     if not isinstance(raw, Mapping) or set(raw) != {"job_type", "clear", "export"}:
         raise BatchNavigationError("Defined Reports metadata is invalid")
     job_type = _document(raw["job_type"])
@@ -294,8 +301,16 @@ class DefinedReportsNavigator:
                     page, self._expected_origin
                 )
             except BatchNavigationError as exc:
-                if str(exc) == "Edge reached an unexpected origin":
+                error = str(exc)
+                if error == "Edge reached an unexpected origin":
                     stage("defined_reports_contract_origin")
+                elif error.startswith("Defined Reports ") and error.endswith(
+                    " is missing"
+                ):
+                    missing = error.removeprefix("Defined Reports ").removesuffix(
+                        " is missing"
+                    )
+                    stage(f"defined_reports_missing_{missing}")
                 else:
                     stage("defined_reports_contract_metadata")
                 raise
