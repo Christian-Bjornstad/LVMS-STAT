@@ -63,4 +63,3 @@ class DocumentDomActions:
             return
         self._page.focus_control(token)
         self._page.replace_focused_text(text)
-        self._page.press_key("ENTER")
