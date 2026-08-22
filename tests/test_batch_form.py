@@ -249,6 +249,21 @@ class BatchFormTests(unittest.TestCase):
                         FakeSafePage(payload), EXPECTED_ORIGIN, "category"
                     )
 
+    def test_role_discovery_accepts_gridcell_parameter_input(self) -> None:
+        payload = raw_control(
+            "INPUT",
+            "analyses",
+            label="angi analyse(r)",
+            control_type="text",
+            role="gridcell",
+        )
+
+        result = discover_report_role(
+            FakeSafePage(payload), EXPECTED_ORIGIN, "analysis_codes"
+        )
+
+        self.assertIsNotNone(result)
+
     def test_populate_advances_in_strict_stage_order(self) -> None:
         state = FormState()
         form = BatchReportForm(

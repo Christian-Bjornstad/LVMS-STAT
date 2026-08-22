@@ -173,7 +173,11 @@ def discover_report_role(
     if (
         control.tag not in _ROLE_TAGS[role]
         or (control.tag == "INPUT" and control.control_type not in _ROLE_TYPES[role])
-        or control.role.lower() in {"grid", "gridcell", "treegrid"}
+        or control.role.lower() in {"grid", "treegrid"}
+        or (
+            control.role.lower() == "gridcell"
+            and role not in _CLEAR_DYNAMIC_ROLES
+        )
         or not any(label == alias or label.startswith(alias + " ") for alias in aliases)
     ):
         raise BatchFormError("report form control is incompatible")
