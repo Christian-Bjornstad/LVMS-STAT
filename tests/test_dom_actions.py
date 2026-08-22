@@ -25,6 +25,31 @@ class HoverPage:
         self.hovered.append(token)
 
 
+class ChoicePage:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, str]] = []
+
+    def current_origin(self) -> str:
+        return EXPECTED_ORIGIN
+
+    def resolve_document_control(self, control: DocumentControlIdentity) -> str | None:
+        del control
+        return "a" * 32
+
+    def choose_native_option(self, token: str, text: str) -> bool:
+        del token, text
+        return False
+
+    def focus_control(self, token: str) -> None:
+        self.events.append(("focus", token))
+
+    def replace_focused_text(self, text: str) -> None:
+        self.events.append(("replace", text))
+
+    def press_key(self, key: str) -> None:
+        self.events.append(("key", key))
+
+
 class DocumentDomActionsTests(unittest.TestCase):
     def test_hover_resolves_identity_before_moving_pointer(self) -> None:
         page = HoverPage()
@@ -33,6 +58,25 @@ class DocumentDomActionsTests(unittest.TestCase):
         actions.hover(DocumentControlIdentity("top", ControlIdentity("A")))
 
         self.assertEqual(page.hovered, ["a" * 32])
+
+    def test_custom_choice_is_committed_and_blurred_after_typing(self) -> None:
+        page = ChoicePage()
+        actions = DocumentDomActions(page, EXPECTED_ORIGIN)  # type: ignore[arg-type]
+
+        actions.choose_text(
+            DocumentControlIdentity("top", ControlIdentity("INPUT")),
+            "REPORT-A",
+        )
+
+        self.assertEqual(
+            page.events,
+            [
+                ("focus", "a" * 32),
+                ("replace", "REPORT-A"),
+                ("key", "ENTER"),
+                ("key", "TAB"),
+            ],
+        )
 
 
 if __name__ == "__main__":

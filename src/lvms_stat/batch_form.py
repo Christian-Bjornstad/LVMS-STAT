@@ -182,7 +182,7 @@ class BatchReportForm:
         actions: FormActions,
         expected_origin: str,
         *,
-        timeout_seconds: float = 20,
+        timeout_seconds: float = 120,
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
     ) -> None:

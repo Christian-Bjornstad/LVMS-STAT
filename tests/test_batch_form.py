@@ -140,6 +140,19 @@ class FormState:
         self.calls.append(("replace", control.frame, control.control.element_id, text))
 
 
+class SlowParameterState(FormState):
+    def __init__(self) -> None:
+        super().__init__()
+        self.analysis_checks = 0
+
+    def evaluate_safe(self, expression: str, *, timeout_seconds: float = 2) -> object:
+        if 'const requestedRole = "analysis_codes"' in expression:
+            self.analysis_checks += 1
+            if self.analysis_checks <= 25:
+                return None
+        return super().evaluate_safe(expression, timeout_seconds=timeout_seconds)
+
+
 class TickingClock:
     def __init__(self) -> None:
         self.value = -1.0
@@ -273,6 +286,24 @@ class BatchFormTests(unittest.TestCase):
                 ("choose", "top", "jobtypeselector", "TYPE_A"),
                 ("choose", "_nav_frame1", "category", "CATEGORY_A"),
             ],
+        )
+
+    def test_populate_waits_for_slow_lvms_parameter_refresh(self) -> None:
+        state = SlowParameterState()
+        form = BatchReportForm(
+            state.page,
+            state.actions,
+            EXPECTED_ORIGIN,
+            clock=TickingClock(),
+            sleep=lambda seconds: None,
+        )
+
+        form.populate(defined_reports_page(), job())
+
+        self.assertEqual(state.analysis_checks, 26)
+        self.assertEqual(
+            state.calls[-1],
+            ("replace", "_nav_frame1", "created-to", "07.08.2026"),
         )
 
     def test_wait_until_clear_allows_persistent_empty_choice_controls(self) -> None:
