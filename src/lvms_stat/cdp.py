@@ -404,7 +404,9 @@ class BrowserPage:
       return 0;
     }}
   }}
-  const matches = Array.from(selectedDocument.querySelectorAll("a,button,input,select,textarea"))
+  const matches = Array.from(selectedDocument.querySelectorAll(
+    "a,button,input,select,span,textarea"
+  ))
     .filter((el) => visible(el) && !el.disabled && !el.readOnly &&
       el.tagName === wanted.tag &&
       String(el.getAttribute("type") || "").slice(0, 120) === wanted.type &&

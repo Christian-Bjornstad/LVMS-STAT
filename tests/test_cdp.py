@@ -331,6 +331,17 @@ class CdpTests(unittest.TestCase):
         self.assertIn('wanted.frame === "top"', expression)
         self.assertIn("try", expression)
 
+    def test_document_resolution_can_resolve_lvms_more_span(self) -> None:
+        cdp = FakeCdp([evaluated(1)])
+
+        token = BrowserPage(cdp).resolve_document_control(
+            DocumentControlIdentity("top", ControlIdentity("SPAN"))
+        )
+
+        self.assertIsNotNone(token)
+        expression = cdp.calls[0][1]["expression"]  # type: ignore[index]
+        self.assertIn('"a,button,input,select,span,textarea"', expression)
+
     def test_focus_requires_control_to_become_active_in_its_own_document(self) -> None:
         cdp = FakeCdp([evaluated("focus-failed")])
 
