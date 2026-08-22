@@ -121,14 +121,18 @@ class CsvArrivalDetector:
             self._pending = None
             return DownloadStatus.AMBIGUOUS
         current = self._scan()
-        new_files = {path: stamp for path, stamp in current.items() if path not in self._baseline}
-        if len(new_files) > 1:
+        changed_files = {
+            path: stamp
+            for path, stamp in current.items()
+            if path not in self._baseline or self._baseline[path] != stamp
+        }
+        if len(changed_files) > 1:
             self._pending = None
             return DownloadStatus.AMBIGUOUS
-        if not new_files:
+        if not changed_files:
             self._pending = None
             return DownloadStatus.WAITING
-        item = next(iter(new_files.items()))
+        item = next(iter(changed_files.items()))
         if self._pending == item:
             self._detected = item[0]
             return DownloadStatus.DETECTED

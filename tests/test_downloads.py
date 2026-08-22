@@ -31,6 +31,18 @@ class DownloadTests(unittest.TestCase):
         self.assertEqual(detector.poll(), DownloadStatus.DETECTED)
         self.assertEqual(detector.detected_path(), new.resolve())
 
+    def test_detects_existing_csv_when_edge_replaces_its_content(self) -> None:
+        existing = self.root / "PAT-DIT-ANTALL-OU.csv"
+        existing.write_bytes(b"old")
+        detector = CsvArrivalDetector(self.root)
+        detector.start()
+
+        existing.write_bytes(b"new report content")
+
+        self.assertEqual(detector.poll(), DownloadStatus.WAITING)
+        self.assertEqual(detector.poll(), DownloadStatus.DETECTED)
+        self.assertEqual(detector.detected_path(), existing.resolve())
+
     def test_reports_ambiguity_and_missing_detected_file(self) -> None:
         detector = CsvArrivalDetector(self.root)
         detector.start()
