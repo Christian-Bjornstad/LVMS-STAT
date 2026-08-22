@@ -11,22 +11,34 @@ from lvms_stat.qt_app import run_app
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="lvms-stat",
-        description="Visible LVMS three-report automation.",
+        description="Visible LVMS statistics automation.",
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
 
     app_parser = subcommands.add_parser(
-        "app", help="Open the one-click PyQt6 three-report window."
+        "app", help="Open the statistics dashboard window."
     )
     app_parser.add_argument("--config", type=Path, required=True)
 
     batch_parser = subcommands.add_parser(
-        "run-batch", help="Automatically export three explicit local report jobs."
+        "run-batch", help="Automatically export explicit local report jobs."
     )
     batch_parser.add_argument("--config", type=Path, required=True)
     batch_parser.add_argument("--jobs", type=Path, required=True)
     batch_parser.add_argument(
         "--job", dest="job_keys", action="append", required=True
+    )
+
+    auto_parser = subcommands.add_parser(
+        "auto",
+        help="Headless scheduled incremental fetch of every unit; exits when done.",
+    )
+    auto_parser.add_argument("--config", type=Path, required=True)
+    auto_parser.add_argument(
+        "--unit",
+        dest="unit_keys",
+        action="append",
+        help="Limit the run to specific unit keys (repeatable).",
     )
 
     return parser
@@ -37,10 +49,21 @@ def main(
     *,
     app_runner: Callable[[Path], int] = run_app,
     batch_runner: Callable[[Path, Path, tuple[str, ...]], int] = run_report_batch,
+    scheduled_runner: Callable[..., int] | None = None,
 ) -> int:
+    from lvms_stat.scheduled import run_scheduled
+
+    runner = scheduled_runner or run_scheduled
     arguments = build_parser().parse_args(argv)
     if arguments.command == "app":
         return app_runner(arguments.config)
+    if arguments.command == "auto":
+        return runner(
+            arguments.config,
+            unit_keys=(
+                tuple(arguments.unit_keys) if arguments.unit_keys else None
+            ),
+        )
     return batch_runner(arguments.config, arguments.jobs, tuple(arguments.job_keys))
 
 

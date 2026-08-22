@@ -28,6 +28,31 @@ class CliTests(unittest.TestCase):
         self.assertEqual(result, 9)
         self.assertEqual(calls, [Path("safe.json")])
 
+    def test_auto_dispatches_scheduled_runner_with_optional_units(self) -> None:
+        calls: list[dict[str, object]] = []
+        result = main(
+            ["auto", "--config", "config.json", "--unit", "hemato"],
+            scheduled_runner=lambda config, **kwargs: calls.append(
+                {"config": config, **kwargs}
+            )
+            or 0,
+        )
+        self.assertEqual(result, 0)
+        self.assertEqual(
+            calls,
+            [{"config": Path("config.json"), "unit_keys": ("hemato",)}],
+        )
+
+    def test_auto_without_units_passes_none_for_all_units(self) -> None:
+        calls: list[dict[str, object]] = []
+        main(
+            ["auto", "--config", "config.json"],
+            scheduled_runner=lambda config, **kwargs: calls.append(
+                {"config": config, **kwargs}
+            ),
+        )
+        self.assertEqual(calls[0]["unit_keys"], None)
+
     def test_run_batch_dispatches_three_repeatable_job_keys_in_order(self) -> None:
         calls: list[tuple[Path, Path, tuple[str, ...]]] = []
         result = main(
