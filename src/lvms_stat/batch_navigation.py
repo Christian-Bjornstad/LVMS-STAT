@@ -222,20 +222,6 @@ def discover_defined_reports_page(
     job_type = _document(raw["job_type"])
     clear = _document(raw["clear"])
     export = _document(raw["export"])
-    if (
-        job_type.control.tag != "INPUT"
-        or job_type.control.control_type not in {"", "text"}
-        or job_type.control.name != "menu"
-        or clear.control.tag != "BUTTON"
-        or clear.control.control_type != "button"
-        or clear.control.element_id != "clear"
-        or clear.control.name != "menu"
-        or export.control.tag != "BUTTON"
-        or export.control.control_type != "button"
-        or export.control.element_id != "export"
-        or export.control.name != "menu"
-    ):
-        raise BatchNavigationError("Defined Reports structure is invalid")
     return DefinedReportsPage(job_type, clear, export)
 
 

@@ -205,6 +205,8 @@ class BatchNavigationTests(unittest.TestCase):
         self.assertNotIn(".value", expression)
         self.assertIn("visible(frame)", expression)
         self.assertIn("data-datafield='reportType'", expression)
+        self.assertIn("button#clear[name='menu'][type='button']", expression)
+        self.assertIn("button#export[name='menu'][type='button']", expression)
         self.assertIn('documents.push({frame: frameName, document: frameDocument})', expression)
 
     def test_page_rejects_absent_or_wrong_origin_contract(self) -> None:
@@ -216,20 +218,12 @@ class BatchNavigationTests(unittest.TestCase):
                 FakeSafePage(page_contract_payload(), OTHER_ORIGIN), EXPECTED_ORIGIN
             )
 
-    def test_page_rejects_malformed_or_wrong_structural_contract(self) -> None:
+    def test_page_rejects_malformed_contract_metadata(self) -> None:
         malformed = page_contract_payload()
         malformed["export"] = None
-        wrong = page_contract_payload()
-        wrong["clear"] = raw_document(
-            "top",
-            raw_control("BUTTON", "wrong-clear", name="menu", control_type="button"),
-        )
-        for payload in (malformed, wrong):
-            with self.subTest(payload=payload):
-                with self.assertRaises(BatchNavigationError):
-                    discover_defined_reports_page(
-                        FakeSafePage(payload), EXPECTED_ORIGIN
-                    )
+
+        with self.assertRaises(BatchNavigationError):
+            discover_defined_reports_page(FakeSafePage(malformed), EXPECTED_ORIGIN)
 
     def test_navigation_anchor_accepts_allowlisted_control_in_same_origin_frame(self) -> None:
         payload = raw_document(
