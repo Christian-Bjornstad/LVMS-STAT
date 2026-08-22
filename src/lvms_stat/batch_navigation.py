@@ -166,7 +166,7 @@ def _navigation_anchor_script(label: str) -> str:
   const matches = [];
   for (const entry of documents) {{
     for (const control of Array.from(
-      entry.document.querySelectorAll("a,button")
+      entry.document.querySelectorAll("a,button,span")
     )) {{
       if (!visible(control)) continue;
       const exactControl = clean(control.textContent) === normalizedWanted;
@@ -236,7 +236,9 @@ def discover_navigation_anchor(
     if raw is None:
         return None
     identity = _document(raw)
-    if identity.control.tag not in {"A", "BUTTON"}:
+    if identity.control.tag not in {"A", "BUTTON"} and not (
+        label == MORE_LABEL and identity.control.tag == "SPAN"
+    ):
         raise BatchNavigationError("navigation control is invalid")
     return identity
 

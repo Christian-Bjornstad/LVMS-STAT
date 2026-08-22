@@ -15,7 +15,9 @@ _FRAME_PATTERN = re.compile(r"[A-Za-z0-9_-]{1,120}")
 _CONTROL_FIELDS = frozenset(
     {"tag", "type", "id", "name", "role", "label", "locator"}
 )
-_ALLOWED_TAGS = frozenset({"A", "BUTTON", "INPUT", "SELECT", "TEXTAREA"})
+_ALLOWED_TAGS = frozenset(
+    {"A", "BUTTON", "INPUT", "SELECT", "SPAN", "TEXTAREA"}
+)
 
 
 @dataclass(frozen=True)

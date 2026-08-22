@@ -155,7 +155,7 @@ class ResponsiveNavigationState:
                 "top", raw_control("A", "section", label="external reports")
             )
         if "Mer" in expression and self.layout == "narrow" and self.stage == "landing":
-            return raw_document("top", raw_control("A", "more", label="more"))
+            return raw_document("top", raw_control("SPAN", "more", label="more"))
         return None
 
     def activate(self, identity: DocumentControlIdentity) -> None:
@@ -243,6 +243,32 @@ class BatchNavigationTests(unittest.TestCase):
         self.assertEqual(anchor.frame, "workflow_frame")
         with self.assertRaises(BatchNavigationError):
             discover_navigation_anchor(page, EXPECTED_ORIGIN, "Arbitrary label")
+
+    def test_navigation_accepts_lvms_span_only_for_more_menu(self) -> None:
+        more = FakeSafePage(
+            raw_document("top", raw_control("SPAN", "more", label="more"))
+        )
+
+        anchor = discover_navigation_anchor(more, EXPECTED_ORIGIN, "Mer")
+
+        self.assertIsNotNone(anchor)
+        assert anchor is not None
+        self.assertEqual(anchor.control.tag, "SPAN")
+        self.assertIn(
+            'querySelectorAll("a,button,span")', more.expressions[0]
+        )
+
+        with self.assertRaises(BatchNavigationError):
+            discover_navigation_anchor(
+                FakeSafePage(
+                    raw_document(
+                        "top",
+                        raw_control("SPAN", "external", label="external reports"),
+                    )
+                ),
+                EXPECTED_ORIGIN,
+                "Eksterne rapporter",
+            )
 
     def test_navigator_handles_direct_wide_and_narrow_responsive_routes(self) -> None:
         expected = {
