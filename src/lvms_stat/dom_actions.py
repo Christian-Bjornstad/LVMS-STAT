@@ -54,6 +54,7 @@ class DocumentDomActions:
     def replace_text(self, control: DocumentControlIdentity, text: str) -> None:
         token = self._resolve(control)
         self._page.activate_control(token)
+        token = self._resolve(control)
         self._page.focus_control(token)
         self._page.replace_focused_text(text)
 

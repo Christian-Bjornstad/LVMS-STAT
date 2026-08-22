@@ -53,6 +53,17 @@ class ChoicePage:
         self.events.append(("key", key))
 
 
+class RefreshingGridPage(ChoicePage):
+    def __init__(self) -> None:
+        super().__init__()
+        self.resolve_count = 0
+
+    def resolve_document_control(self, control: DocumentControlIdentity) -> str | None:
+        del control
+        self.resolve_count += 1
+        return f"{self.resolve_count:032x}"
+
+
 class DocumentDomActionsTests(unittest.TestCase):
     def test_hover_resolves_identity_before_moving_pointer(self) -> None:
         page = HoverPage()
@@ -81,7 +92,7 @@ class DocumentDomActionsTests(unittest.TestCase):
         )
 
     def test_text_field_is_activated_before_replacing_grid_value(self) -> None:
-        page = ChoicePage()
+        page = RefreshingGridPage()
         actions = DocumentDomActions(page, EXPECTED_ORIGIN)  # type: ignore[arg-type]
 
         actions.replace_text(
@@ -92,8 +103,8 @@ class DocumentDomActionsTests(unittest.TestCase):
         self.assertEqual(
             page.events,
             [
-                ("activate", "a" * 32),
-                ("focus", "a" * 32),
+                ("activate", f"{1:032x}"),
+                ("focus", f"{2:032x}"),
                 ("replace", "VALUE-A"),
             ],
         )
