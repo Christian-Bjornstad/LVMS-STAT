@@ -93,9 +93,11 @@ class DownloadTests(unittest.TestCase):
     def test_finalize_csv_moves_without_overwriting(self) -> None:
         source = self.root / "generated.csv"
         source.write_bytes(b"synthetic")
+        destination_directory = self.root / "rådata"
+        destination_directory.mkdir()
 
         destination = finalize_csv(
-            source, self.root, "one__2026-08-01__2026-08-07.csv"
+            source, destination_directory, "one__2026-08-01__2026-08-07.csv"
         )
 
         self.assertTrue(destination.is_file())
@@ -104,7 +106,7 @@ class DownloadTests(unittest.TestCase):
         second = self.root / "second.csv"
         second.write_bytes(b"new")
         with self.assertRaises(DownloadError):
-            finalize_csv(second, self.root, destination.name)
+            finalize_csv(second, destination_directory, destination.name)
         self.assertTrue(second.is_file())
         self.assertEqual(destination.read_bytes(), b"existing")
 
@@ -116,7 +118,7 @@ class DownloadTests(unittest.TestCase):
         invalid = (
             (Path("source.csv"), self.root, "target.csv"),
             (source, Path("relative"), "target.csv"),
-            (source, outside, "target.csv"),
+            (source, self.root, "../target.csv"),
             (source, self.root, "target.txt"),
         )
         for source_path, directory, filename in invalid:

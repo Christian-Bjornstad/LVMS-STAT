@@ -144,11 +144,13 @@ def run_report_batch(
         if not 1 <= timeout_seconds <= 3600:
             raise ValueError("report timeout is invalid")
         config = active.config_load(config_path, root)
+        output_directory = (root / "rådata").resolve()
+        output_directory.mkdir(parents=True, exist_ok=True)
         set_stage("job_definitions")
         jobs = select_batch_jobs(active.jobs_load(jobs_path), job_keys)
         set_stage("output_check")
         filenames = tuple(batch_filename(job) for job in jobs)
-        if any((config.download_directory / name).exists() for name in filenames):
+        if any((output_directory / name).exists() for name in filenames):
             raise RuntimeError("batch destination already exists")
 
         edge, connection, page = open_page(config, active, stage=set_stage)
@@ -190,7 +192,7 @@ def run_report_batch(
             actions.activate(contract.export)
             set_stage(f"report_{index}_download")
             source = _wait_for_csv(detector, active, timeout_seconds)
-            active.finalizer(source, config.download_directory, filename)
+            active.finalizer(source, output_directory, filename)
             stream.write(f"Batch job completed: {job.job_key} -> {filename}\n")
         result = 0
     except BrowserCleanupError:

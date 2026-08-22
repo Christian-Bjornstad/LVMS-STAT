@@ -306,7 +306,7 @@ class SyntheticBatchHarness:
         return self.root / "jobs.json"
 
     def completed_files(self) -> tuple[Path, ...]:
-        return tuple(self.config.download_directory.glob("*.csv"))
+        return tuple((self.root / "rådata").glob("*.csv"))
 
     def dependencies(self) -> BatchRunnerDependencies:
         edge = SyntheticEdge(self)
@@ -362,6 +362,7 @@ def test_synthetic_batch_navigates_frames_exports_three_and_never_reads_csv(
         JOB_KEYS,
         dependencies=harness.dependencies(),
         output=io.StringIO(),
+        repository_root=harness.root,
     )
 
     assert result == 0

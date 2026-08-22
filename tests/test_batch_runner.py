@@ -228,6 +228,7 @@ class BatchRunnerTests(unittest.TestCase):
             dependencies=harness.dependencies(),
             output=output,
             timeout_seconds=timeout_seconds,
+            repository_root=harness.config.profile_directory.parent,
         )
         return result, output.getvalue()
 
@@ -260,6 +261,9 @@ class BatchRunnerTests(unittest.TestCase):
         self.assertNotIn("ANALYSIS-ORDERED", output)
         self.assertNotIn(str(harness.config.download_directory), output)
         self.assertEqual(harness.download_setup_count, 4)
+        self.assertTrue(
+            (harness.config.profile_directory.parent / "rådata").is_dir()
+        )
 
     def test_reports_numeric_progress_without_job_or_report_details(self) -> None:
         harness = BatchHarness()
@@ -273,6 +277,7 @@ class BatchRunnerTests(unittest.TestCase):
             dependencies=harness.dependencies(),
             output=io.StringIO(),
             progress=lambda current, total: progress.append((current, total)),
+            repository_root=harness.config.profile_directory.parent,
         )
 
         self.assertEqual(result, 0)
@@ -326,6 +331,7 @@ class BatchRunnerTests(unittest.TestCase):
                     dependencies=harness.dependencies(),
                     output=io.StringIO(),
                     timeout_seconds=timeout,
+                    repository_root=harness.config.profile_directory.parent,
                 )
                 self.assertEqual(result, 2)
                 self.assertEqual(harness.browser_open_count, 0)
@@ -352,6 +358,7 @@ class BatchRunnerTests(unittest.TestCase):
             dependencies=harness.dependencies(),
             output=io.StringIO(),
             failure=failures.append,
+            repository_root=harness.config.profile_directory.parent,
         )
 
         self.assertEqual(result, 2)

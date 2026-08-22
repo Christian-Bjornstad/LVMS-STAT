@@ -25,6 +25,7 @@ downloads/
 contracts/
 data/
 raw-reports/
+rådata/
 processed-reports/
 workflows/
 *.workflow.json

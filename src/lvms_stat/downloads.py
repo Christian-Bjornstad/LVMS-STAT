@@ -31,8 +31,7 @@ def finalize_csv(source: Path, directory: Path, filename: str) -> Path:
     resolved_source = source.resolve()
     destination = resolved_directory / filename
     if (
-        resolved_source.parent != resolved_directory
-        or resolved_source.suffix.lower() != ".csv"
+        resolved_source.suffix.lower() != ".csv"
         or destination.parent != resolved_directory
         or destination.suffix.lower() != ".csv"
         or not resolved_source.is_file()
