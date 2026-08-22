@@ -38,6 +38,7 @@ FAILURE_LABELS = {
     "defined_reports_activate_direct": "klikk på Definerte rapporter i tram-lines",
     "defined_reports_wait_form": "venting på rapportskjemaet etter klikk",
     "defined_reports_find_section": "søk etter Eksterne rapporter",
+    "defined_reports_hover_section": "åpning av undermenyen Eksterne rapporter",
     "defined_reports_activate_section": "klikk på Eksterne rapporter",
     "defined_reports_find_more": "søk etter Mer-menyen",
     "defined_reports_activate_more": "klikk på Mer-menyen",

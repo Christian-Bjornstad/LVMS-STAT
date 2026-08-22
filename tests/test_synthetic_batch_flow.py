@@ -226,8 +226,11 @@ class SyntheticPage:
             raise AssertionError("unexpected synthetic activation")
 
     def hover_control(self, token: str) -> None:
-        del token
-        raise AssertionError("synthetic section navigation must use activation")
+        element_id = self.tokens[token]
+        if element_id != "section":
+            raise AssertionError("unexpected synthetic hover")
+        self.navigation_stage = 1
+        self.harness.navigation_route.append("section")
 
     def choose_native_option(self, token: str, text: str) -> bool:
         element_id = self.tokens[token]

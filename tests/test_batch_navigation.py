@@ -149,7 +149,8 @@ class ResponsiveNavigationState:
                     "top", raw_control("A", "defined_reports", label="defined reports")
                 )
         if "Eksterne rapporter" in expression and (
-            (self.layout == "wide" and self.stage == "landing")
+            (self.layout in {"wide", "click_required"} and self.stage == "landing")
+            or (self.layout == "click_required" and self.stage == "section_hovered")
             or self.stage == "more_open"
         ):
             return raw_document(
@@ -164,7 +165,11 @@ class ResponsiveNavigationState:
         self.interactions.append(f"activate:{element_id}")
         if element_id == "more" and self.stage == "landing":
             self.stage = "more_open"
-        elif element_id == "section" and self.stage in {"landing", "more_open"}:
+        elif element_id == "section" and self.stage in {
+            "landing",
+            "more_open",
+            "section_hovered",
+        }:
             self.stage = "section_open"
         elif element_id == "defined_reports" and self.stage in {
             "landing",
@@ -175,8 +180,14 @@ class ResponsiveNavigationState:
             raise AssertionError("unexpected activation")
 
     def hover(self, identity: DocumentControlIdentity) -> None:
-        del identity
-        raise AssertionError("section navigation must use activation")
+        element_id = identity.control.element_id
+        self.interactions.append(f"hover:{element_id}")
+        if element_id != "section" or self.stage not in {"landing", "more_open"}:
+            raise AssertionError("unexpected hover")
+        if self.layout == "click_required":
+            self.stage = "section_hovered"
+        else:
+            self.stage = "section_open"
 
 
 class TickingClock:
@@ -291,9 +302,14 @@ class BatchNavigationTests(unittest.TestCase):
     def test_navigator_handles_direct_wide_and_narrow_responsive_routes(self) -> None:
         expected = {
             "direct": ["activate:defined_reports"],
-            "wide": ["activate:section", "activate:defined_reports"],
+            "wide": ["hover:section", "activate:defined_reports"],
             "narrow": [
                 "activate:more",
+                "hover:section",
+                "activate:defined_reports",
+            ],
+            "click_required": [
+                "hover:section",
                 "activate:section",
                 "activate:defined_reports",
             ],

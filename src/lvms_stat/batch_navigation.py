@@ -271,7 +271,8 @@ class DefinedReportsNavigator:
     ) -> DefinedReportsPage:
         deadline = self._clock() + self._timeout_seconds
         used_more = False
-        used_section = False
+        hovered_section = False
+        activated_section = False
         used_defined_reports = False
         while self._clock() < deadline:
             try:
@@ -320,15 +321,20 @@ class DefinedReportsNavigator:
                     _require_origin(page, self._expected_origin)
                     self._sleep(0.1)
                     continue
-            if not used_section:
+            if not activated_section:
                 stage("defined_reports_find_section")
                 anchor = discover_navigation_anchor(
                     page, self._expected_origin, REPORTS_SECTION_LABEL
                 )
                 if anchor is not None:
-                    stage("defined_reports_activate_section")
-                    actions.activate(anchor)
-                    used_section = True
+                    if not hovered_section:
+                        stage("defined_reports_hover_section")
+                        actions.hover(anchor)
+                        hovered_section = True
+                    else:
+                        stage("defined_reports_activate_section")
+                        actions.activate(anchor)
+                        activated_section = True
                     _require_origin(page, self._expected_origin)
                     self._sleep(0.1)
                     continue
