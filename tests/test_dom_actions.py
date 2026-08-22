@@ -73,7 +73,7 @@ class DocumentDomActionsTests(unittest.TestCase):
 
         self.assertEqual(page.hovered, ["a" * 32])
 
-    def test_custom_choice_stays_in_field_until_next_control_is_focused(self) -> None:
+    def test_custom_choice_types_into_physically_activated_field(self) -> None:
         page = ChoicePage()
         actions = DocumentDomActions(page, EXPECTED_ORIGIN)  # type: ignore[arg-type]
 
@@ -86,7 +86,6 @@ class DocumentDomActionsTests(unittest.TestCase):
             page.events,
             [
                 ("activate", "a" * 32),
-                ("focus", "a" * 32),
                 ("replace", "REPORT-A"),
             ],
         )
@@ -109,7 +108,7 @@ class DocumentDomActionsTests(unittest.TestCase):
         )
         self.assertEqual(page.resolve_count, 1)
 
-    def test_commit_choice_refocuses_report_id_and_sends_enter_once(self) -> None:
+    def test_commit_choice_sends_enter_to_physically_activated_report_id(self) -> None:
         page = ChoicePage()
         actions = DocumentDomActions(page, EXPECTED_ORIGIN)  # type: ignore[arg-type]
 
@@ -121,7 +120,6 @@ class DocumentDomActionsTests(unittest.TestCase):
             page.events,
             [
                 ("activate", "a" * 32),
-                ("focus", "a" * 32),
                 ("key", "ENTER"),
             ],
         )
