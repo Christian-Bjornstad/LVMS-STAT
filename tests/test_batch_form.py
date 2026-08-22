@@ -42,6 +42,7 @@ def raw_control(
 ROLE_PAYLOADS = {
     "category": raw_control("SELECT", "category", label="kategori"),
     "report_id": raw_control("SELECT", "report-id", label="rapport id"),
+    "notes": raw_control("TEXTAREA", "notes", label="notater"),
     "analysis_codes": raw_control("TEXTAREA", "analyses", label="angi analyse(r)"),
     "created_from": raw_control(
         "INPUT", "created-from", label="analyse opprettet fom:", control_type="text"
@@ -120,6 +121,7 @@ class FormState:
     def __init__(self, *, missing_role: str | None = None) -> None:
         self.missing_role = missing_role
         self.calls: list[tuple[str, str, str, str]] = []
+        self.activated: list[str] = []
         self.page = self
         self.actions = self
 
@@ -138,6 +140,9 @@ class FormState:
 
     def replace_text(self, control: DocumentControlIdentity, text: str) -> None:
         self.calls.append(("replace", control.frame, control.control.element_id, text))
+
+    def activate(self, control: DocumentControlIdentity) -> None:
+        self.activated.append(control.control.element_id)
 
 
 class SlowParameterState(FormState):
@@ -186,6 +191,7 @@ class BatchFormTests(unittest.TestCase):
         expected_ids = {
             "category": "category",
             "report_id": "report-id",
+            "notes": "notes",
             "analysis_codes": "analyses",
             "created_from": "created-from",
             "created_to": "created-to",
@@ -266,6 +272,8 @@ class BatchFormTests(unittest.TestCase):
             ],
         )
 
+        self.assertEqual(state.activated, ["notes"])
+
     def test_missing_stage_stops_before_later_actions(self) -> None:
         state = FormState(missing_role="report_id")
         form = BatchReportForm(
@@ -287,6 +295,7 @@ class BatchFormTests(unittest.TestCase):
                 ("choose", "_nav_frame1", "category", "CATEGORY_A"),
             ],
         )
+        self.assertEqual(state.activated, [])
 
     def test_populate_waits_for_slow_lvms_parameter_refresh(self) -> None:
         state = SlowParameterState()

@@ -144,6 +144,7 @@ class SyntheticPage:
             roles = {
                 "category": (1, "SELECT", "category", "kategori", ""),
                 "report_id": (2, "SELECT", "report-id", "rapport id", ""),
+                "notes": (0, "TEXTAREA", "notes", "notater", ""),
                 "analysis_codes": (3, "TEXTAREA", "analyses", "angi analyse(r)", ""),
                 "created_from": (
                     3,
@@ -186,6 +187,7 @@ class SyntheticPage:
             "export": 0,
             "category": 1,
             "report-id": 2,
+            "notes": 0,
             "analyses": 3,
             "created-from": 3,
             "created-to": 3,
@@ -222,6 +224,8 @@ class SyntheticPage:
                 f"synthetic-{self.harness.export_count}.csv"
             )
             destination.write_bytes(b"metric,count\nsynthetic,1\n")
+        elif element_id == "notes":
+            pass
         else:
             raise AssertionError("unexpected synthetic activation")
 

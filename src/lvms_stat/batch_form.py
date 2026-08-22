@@ -21,6 +21,7 @@ class BatchFormError(RuntimeError):
 _ROLE_ALIASES = {
     "category": ("category", "kategori"),
     "report_id": ("report id", "rapport id"),
+    "notes": ("notes", "notater"),
     "analysis_codes": ("analyses", "angi analyse(r)"),
     "created_from": ("created from", "analyse opprettet fom:"),
     "created_to": ("created to", "analyse opprettet tom:"),
@@ -29,6 +30,7 @@ _CLEAR_DYNAMIC_ROLES = ("analysis_codes", "created_from", "created_to")
 _ROLE_TAGS = {
     "category": frozenset({"INPUT", "SELECT"}),
     "report_id": frozenset({"INPUT", "SELECT"}),
+    "notes": frozenset({"INPUT", "TEXTAREA"}),
     "analysis_codes": frozenset({"INPUT", "TEXTAREA"}),
     "created_from": frozenset({"INPUT"}),
     "created_to": frozenset({"INPUT"}),
@@ -36,6 +38,7 @@ _ROLE_TAGS = {
 _ROLE_TYPES = {
     "category": frozenset({"", "text", "search"}),
     "report_id": frozenset({"", "text", "search"}),
+    "notes": frozenset({"", "text", "search"}),
     "analysis_codes": frozenset({"", "text", "search"}),
     "created_from": frozenset({"", "text", "date"}),
     "created_to": frozenset({"", "text", "date"}),
@@ -51,6 +54,8 @@ class FormPage(Protocol):
 
 
 class FormActions(Protocol):
+    def activate(self, control: DocumentControlIdentity) -> None: ...
+
     def choose_text(self, control: DocumentControlIdentity, text: str) -> None: ...
 
     def replace_text(self, control: DocumentControlIdentity, text: str) -> None: ...
@@ -228,6 +233,8 @@ class BatchReportForm:
         self._actions.choose_text(category, job.category)
         report_id = self._wait_for("report_id")
         self._actions.choose_text(report_id, job.report_id)
+        notes = self._wait_for("notes")
+        self._actions.activate(notes)
         analysis_codes = self._wait_for("analysis_codes")
         created_from = self._wait_for("created_from")
         created_to = self._wait_for("created_to")

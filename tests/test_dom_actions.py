@@ -59,7 +59,7 @@ class DocumentDomActionsTests(unittest.TestCase):
 
         self.assertEqual(page.hovered, ["a" * 32])
 
-    def test_custom_choice_is_committed_and_blurred_after_typing(self) -> None:
+    def test_custom_choice_is_committed_without_leaving_the_field(self) -> None:
         page = ChoicePage()
         actions = DocumentDomActions(page, EXPECTED_ORIGIN)  # type: ignore[arg-type]
 
@@ -74,7 +74,6 @@ class DocumentDomActionsTests(unittest.TestCase):
                 ("focus", "a" * 32),
                 ("replace", "REPORT-A"),
                 ("key", "ENTER"),
-                ("key", "TAB"),
             ],
         )
 
