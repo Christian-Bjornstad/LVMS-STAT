@@ -185,6 +185,13 @@ def run_report_batch(
             set_stage(f"report_{index}_clear")
             contract = _wait_for_page(page, config.expected_origin, active)
             actions.activate(contract.clear)
+            if index > 1:
+                # LVMS can ignore the first clear while the preceding export is
+                # still settling. Re-resolve and activate the live button once
+                # more before accepting the cleared form.
+                active.sleeper(2.0)
+                contract = _wait_for_page(page, config.expected_origin, active)
+                actions.activate(contract.clear)
             form.wait_until_clear()
             set_stage(f"report_{index}_fill")
             contract = _wait_for_page(page, config.expected_origin, active)

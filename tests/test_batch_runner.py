@@ -121,8 +121,16 @@ class BatchHarness:
         class Actions:
             def activate(self, identity: DocumentControlIdentity) -> None:
                 if identity.control.element_id == "clear":
-                    key = JOB_KEYS[harness.clear_index]
-                    harness.clear_index += 1
+                    previous_clear = (
+                        harness.events[-1].removeprefix("clear:")
+                        if harness.events and harness.events[-1].startswith("clear:")
+                        else None
+                    )
+                    if previous_clear is not None and previous_clear == harness.current_job:
+                        key = previous_clear
+                    else:
+                        key = JOB_KEYS[harness.clear_index]
+                        harness.clear_index += 1
                     harness.current_job = key
                     harness.events.append(f"clear:{key}")
                     if harness.failure_stage == "clear" and key == harness.failed_job:
@@ -247,9 +255,11 @@ class BatchRunnerTests(unittest.TestCase):
                 "export:ordered",
                 "finalize:ordered",
                 "clear:answered",
+                "clear:answered",
                 "populate:answered",
                 "export:answered",
                 "finalize:answered",
+                "clear:extraction",
                 "clear:extraction",
                 "populate:extraction",
                 "export:extraction",
