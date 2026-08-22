@@ -185,6 +185,27 @@ class RefreshingFinalParameterState(FormState):
         super().replace_text(control, text)
 
 
+class RefreshingReportIdState(FormState):
+    def __init__(self) -> None:
+        super().__init__()
+        self.report_id_checks = 0
+
+    def evaluate_safe(self, expression: str, *, timeout_seconds: float = 2) -> object:
+        del timeout_seconds
+        if 'const requestedRole = "report_id"' in expression:
+            self.report_id_checks += 1
+            payload = dict(ROLE_PAYLOADS["report_id"])
+            control = dict(payload["control"])  # type: ignore[arg-type]
+            control["id"] = f"report-id-{self.report_id_checks}"
+            payload["control"] = control
+            return payload
+        return super().evaluate_safe(expression)
+
+    def commit_choice(self, control: DocumentControlIdentity) -> None:
+        if control.control.element_id != "report-id-2":
+            raise AssertionError("stale report id identity")
+        super().commit_choice(control)
+
 class TickingClock:
     def __init__(self) -> None:
         self.value = -1.0
@@ -389,6 +410,20 @@ class BatchFormTests(unittest.TestCase):
         form.populate(defined_reports_page(), job())
 
         self.assertEqual(state.created_to_checks, 2)
+
+    def test_populate_rediscovers_report_id_before_pressing_enter(self) -> None:
+        state = RefreshingReportIdState()
+        form = BatchReportForm(
+            state.page,
+            state.actions,
+            EXPECTED_ORIGIN,
+            clock=TickingClock(),
+            sleep=lambda seconds: None,
+        )
+
+        form.populate(defined_reports_page(), job())
+
+        self.assertEqual(state.report_id_checks, 2)
 
     def test_wait_until_clear_allows_persistent_empty_choice_controls(self) -> None:
         page = ClearingPage(dynamic_roles_present=False)

@@ -255,6 +255,8 @@ class BatchReportForm:
         self._actions.choose_text(category, job.category)
         report_id = self._wait_for("report_id")
         self._actions.choose_text(report_id, job.report_id)
+        self._sleep(0.5)
+        report_id = self._wait_for("report_id")
         self._actions.commit_choice(report_id)
         analysis_codes = self._wait_for("analysis_codes")
         created_from = self._wait_for("created_from")
