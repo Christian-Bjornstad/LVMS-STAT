@@ -388,7 +388,7 @@ class BrowserPage:
       if (text) return text.slice(0, 120);
       const previousControl = previous.querySelector("input,select,textarea");
       if (previousControl)
-        return clean(previousControl.getAttribute("value")).slice(0, 120);
+        return clean(previousControl.value).slice(0, 120);
     }}
     return "";
   }};

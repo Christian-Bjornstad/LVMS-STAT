@@ -313,7 +313,7 @@ class CdpTests(unittest.TestCase):
         self.assertNotIn("!el.readOnly", expression)
         self.assertNotIn("!previous.querySelector", expression)
         self.assertIn('previous.querySelector("input,select,textarea")', expression)
-        self.assertIn('previousControl.getAttribute("value")', expression)
+        self.assertIn("previousControl.value", expression)
 
     def test_document_resolution_requires_exactly_one_match(self) -> None:
         identity = DocumentControlIdentity(
