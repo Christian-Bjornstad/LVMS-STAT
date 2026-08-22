@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from lvms_stat.report_job import (
+    CODE_PATTERN,
     KEY_PATTERN,
     OUTPUT_STEM_PATTERN,
     ReportJobError,
@@ -38,6 +39,7 @@ class Unit:
     key: str
     label: str
     reports: tuple[UnitReport, ...]
+    analysis_codes: tuple[str, ...]
 
     def report_by_key(self, job_key: str) -> UnitReport:
         for report in self.reports:
@@ -85,6 +87,21 @@ def _reports(raw: Mapping[str, object]) -> tuple[UnitReport, ...]:
     return tuple(reports)
 
 
+def _analysis_codes(raw: Mapping[str, object]) -> tuple[str, ...]:
+    items = raw.get("analysis_codes")
+    if not isinstance(items, list) or not 1 <= len(items) <= 500:
+        raise UnitsConfigError("unit analysis codes are invalid")
+    codes: list[str] = []
+    for item in items:
+        if not isinstance(item, str) or not CODE_PATTERN.fullmatch(item.strip()):
+            raise UnitsConfigError("unit analysis code is invalid")
+        code = item.strip()
+        if code in codes:
+            raise UnitsConfigError("unit analysis codes contain duplicates")
+        codes.append(code)
+    return tuple(codes)
+
+
 def validate_units(raw: object) -> tuple[Unit, ...]:
     if not isinstance(raw, dict) or not isinstance(raw.get("units"), dict):
         raise UnitsConfigError("units configuration must contain a units object")
@@ -105,6 +122,7 @@ def validate_units(raw: object) -> tuple[Unit, ...]:
                 key=key,
                 label=_label(raw_unit, key),
                 reports=_reports(raw_unit),
+                analysis_codes=_analysis_codes(raw_unit),
             )
         )
     return tuple(units)

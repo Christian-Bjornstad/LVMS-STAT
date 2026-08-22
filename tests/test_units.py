@@ -19,12 +19,14 @@ VALID = {
     "units": {
         "hemato": {
             "label": "Hemato",
+            "analysis_codes": ["JAK2-V617F-OU", "CALR-OU"],
             "reports": [
                 {"job_key": "ordered", "report_id": "PAT-DIT-ANTALL-OU"},
                 {"job_key": "answered", "report_id": "PAT-DIT-RESULTATER-OU"},
             ],
         },
         "solide": {
+            "analysis_codes": ["EKSTRAKSJON-SO-OU"],
             "reports": [
                 {"job_key": "ordered", "report_id": "PAT-DIT-ANTALL-SO"},
             ]
@@ -70,6 +72,7 @@ def test_invalid_report_id_is_rejected() -> None:
     raw = {
         "units": {
             "hemato": {
+                "analysis_codes": ["CALR-OU"],
                 "reports": [{"job_key": "ordered", "report_id": "bad id!"}]
             }
         }
@@ -79,7 +82,7 @@ def test_invalid_report_id_is_rejected() -> None:
 
 
 def test_invalid_unit_key_is_rejected() -> None:
-    raw = {"units": {"ikke gyldig!": {"reports": [{"job_key": "a", "report_id": "A"}]}}}
+    raw = {"units": {"ikke gyldig!": {"analysis_codes": ["CALR-OU"], "reports": [{"job_key": "a", "report_id": "A"}]}}}
     with pytest.raises(UnitsConfigError):
         validate_units(raw)
 
@@ -99,3 +102,35 @@ def test_load_units_missing_file(tmp_path: Path) -> None:
 def test_default_units_path_sits_beside_config() -> None:
     config = Path("C:/app/config.json")
     assert default_units_path(config) == Path("C:/app/units.json")
+
+
+def test_analysis_codes_are_loaded() -> None:
+    units = validate_units(VALID)
+    assert units[0].analysis_codes == ("JAK2-V617F-OU", "CALR-OU")
+
+
+def test_missing_analysis_codes_is_rejected() -> None:
+    import copy
+
+    raw = copy.deepcopy(VALID)
+    del raw["units"]["hemato"]["analysis_codes"]
+    with pytest.raises(UnitsConfigError):
+        validate_units(raw)
+
+
+def test_duplicate_analysis_codes_are_rejected() -> None:
+    import copy
+
+    raw = copy.deepcopy(VALID)
+    raw["units"]["hemato"]["analysis_codes"] = ["CALR-OU", "CALR-OU"]
+    with pytest.raises(UnitsConfigError):
+        validate_units(raw)
+
+
+def test_invalid_analysis_code_is_rejected() -> None:
+    import copy
+
+    raw = copy.deepcopy(VALID)
+    raw["units"]["hemato"]["analysis_codes"] = ["bad code!"]
+    with pytest.raises(UnitsConfigError):
+        validate_units(raw)

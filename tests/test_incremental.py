@@ -20,6 +20,7 @@ def write_units(tmp_path: Path) -> Path:
         "units": {
             "hemato": {
                 "label": "Hemato",
+                "analysis_codes": ["JAK2-V617F-OU", "CALR-OU"],
                 "reports": [
                     {"job_key": "ordered", "report_id": "PAT-DIT-ANTALL-OU"},
                     {
@@ -29,6 +30,7 @@ def write_units(tmp_path: Path) -> Path:
                 ],
             },
             "solide": {
+                "analysis_codes": ["EKSTRAKSJON-SO-OU"],
                 "reports": [
                     {"job_key": "ordered", "report_id": "PAT-DIT-ANTALL-SO"},
                 ]
