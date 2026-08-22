@@ -104,33 +104,41 @@ DEFINED_REPORTS_PAGE_SCRIPT = (
 """
     + _IDENTITY_SCRIPT
     + r"""
-  const jobTypes = Array.from(document.querySelectorAll(
-    "select#jobtypeselector[name='jobtypeselector']"
-  )).filter(visible);
-  const frames = Array.from(document.querySelectorAll("iframe,frame")).filter(
-    (frame) => visible(frame) &&
-      (frame.getAttribute("id") === "_nav_frame1" ||
-        frame.getAttribute("name") === "_nav_frame1")
-  );
-  if (jobTypes.length !== 1 || frames.length !== 1) return null;
-  let frameDocument = null;
-  try {
-    frameDocument = frames[0].contentDocument;
-    if (!frameDocument || !frameDocument.documentElement) return null;
-  } catch (error) {
-    return null;
+  const documents = [{frame: "top", document}];
+  for (const frame of Array.from(document.querySelectorAll("iframe,frame"))) {
+    if (!visible(frame)) continue;
+    const frameName = String(
+      frame.getAttribute("id") || frame.getAttribute("name") || ""
+    ).trim();
+    if (!/^[A-Za-z0-9_-]{1,120}$/.test(frameName)) continue;
+    try {
+      const frameDocument = frame.contentDocument;
+      if (frameDocument && frameDocument.documentElement)
+        documents.push({frame: frameName, document: frameDocument});
+    } catch (error) {
+      continue;
+    }
   }
-  const clears = Array.from(frameDocument.querySelectorAll(
-    "button#clear[name='menu'][type='button']"
-  )).filter(visible);
-  const exports = Array.from(frameDocument.querySelectorAll(
-    "button#export[name='menu'][type='button']"
-  )).filter(visible);
+  const jobTypes = [];
+  const clears = [];
+  const exports = [];
+  for (const entry of documents) {
+    for (const control of Array.from(entry.document.querySelectorAll(
+      "input[name='menu'][data-datafield='reportType']"
+    )).filter(visible)) jobTypes.push({frame: entry.frame, control});
+    for (const control of Array.from(entry.document.querySelectorAll(
+      "button#clear[name='menu'][type='button']"
+    )).filter(visible)) clears.push({frame: entry.frame, control});
+    for (const control of Array.from(entry.document.querySelectorAll(
+      "button#export[name='menu'][type='button']"
+    )).filter(visible)) exports.push({frame: entry.frame, control});
+  }
   if (clears.length !== 1 || exports.length !== 1) return null;
+  if (jobTypes.length !== 1) return null;
   return {
-    job_type: identity(jobTypes[0], "top"),
-    clear: identity(clears[0], "_nav_frame1"),
-    export: identity(exports[0], "_nav_frame1")
+    job_type: identity(jobTypes[0].control, jobTypes[0].frame),
+    clear: identity(clears[0].control, clears[0].frame),
+    export: identity(exports[0].control, exports[0].frame)
   };
 })()
 """
@@ -215,16 +223,13 @@ def discover_defined_reports_page(
     clear = _document(raw["clear"])
     export = _document(raw["export"])
     if (
-        job_type.frame != "top"
-        or job_type.control.tag != "SELECT"
-        or job_type.control.element_id != "jobtypeselector"
-        or job_type.control.name != "jobtypeselector"
-        or clear.frame != "_nav_frame1"
+        job_type.control.tag != "INPUT"
+        or job_type.control.control_type not in {"", "text"}
+        or job_type.control.name != "menu"
         or clear.control.tag != "BUTTON"
         or clear.control.control_type != "button"
         or clear.control.element_id != "clear"
         or clear.control.name != "menu"
-        or export.frame != "_nav_frame1"
         or export.control.tag != "BUTTON"
         or export.control.control_type != "button"
         or export.control.element_id != "export"

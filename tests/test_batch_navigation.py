@@ -43,11 +43,12 @@ def raw_document(
 def page_contract_payload() -> dict[str, object]:
     return {
         "job_type": raw_document(
-            "top",
+            "pageentry",
             raw_control(
-                "SELECT",
-                "jobtypeselector",
-                name="jobtypeselector",
+                "INPUT",
+                "report-type",
+                name="menu",
+                control_type="text",
             ),
         ),
         "clear": raw_document(
@@ -195,14 +196,16 @@ class BatchNavigationTests(unittest.TestCase):
 
         self.assertIsNotNone(contract)
         assert contract is not None
-        self.assertEqual(contract.job_type.frame, "top")
-        self.assertEqual(contract.job_type.control.element_id, "jobtypeselector")
+        self.assertEqual(contract.job_type.frame, "pageentry")
+        self.assertEqual(contract.job_type.control.element_id, "report-type")
         self.assertEqual(contract.clear.frame, "_nav_frame1")
         self.assertEqual(contract.export.control.element_id, "export")
         expression = page.expressions[0]
         self.assertNotIn(".src", expression)
         self.assertNotIn(".value", expression)
         self.assertIn("visible(frame)", expression)
+        self.assertIn("data-datafield='reportType'", expression)
+        self.assertIn('documents.push({frame: frameName, document: frameDocument})', expression)
 
     def test_page_rejects_absent_or_wrong_origin_contract(self) -> None:
         self.assertIsNone(
@@ -218,7 +221,8 @@ class BatchNavigationTests(unittest.TestCase):
         malformed["export"] = None
         wrong = page_contract_payload()
         wrong["clear"] = raw_document(
-            "top", raw_control("BUTTON", "clear", name="menu", control_type="button")
+            "top",
+            raw_control("BUTTON", "wrong-clear", name="menu", control_type="button"),
         )
         for payload in (malformed, wrong):
             with self.subTest(payload=payload):

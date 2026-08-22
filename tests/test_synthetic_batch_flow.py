@@ -108,10 +108,11 @@ class SyntheticPage:
             return None
         return {
             "job_type": raw_control(
-                "top",
-                "SELECT",
-                "jobtypeselector",
-                name="jobtypeselector",
+                "pageentry",
+                "INPUT",
+                "report-type",
+                name="menu",
+                control_type="text",
             ),
             "clear": raw_control(
                 "_nav_frame1",
@@ -180,7 +181,7 @@ class SyntheticPage:
         if not self.destination:
             return False
         stages = {
-            "jobtypeselector": 0,
+            "report-type": 0,
             "clear": 0,
             "export": 0,
             "category": 1,
@@ -231,7 +232,7 @@ class SyntheticPage:
     def choose_native_option(self, token: str, text: str) -> bool:
         element_id = self.tokens[token]
         self.values[element_id] = text
-        if element_id == "jobtypeselector":
+        if element_id == "report-type":
             self.form_stage = 1
         elif element_id == "category":
             self.form_stage = 2
