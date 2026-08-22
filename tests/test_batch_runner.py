@@ -11,7 +11,7 @@ from lvms_stat.batch_navigation import DefinedReportsPage
 from lvms_stat.batch_runner import BatchRunnerDependencies, run_report_batch
 from lvms_stat.config import AppConfig
 from lvms_stat.downloads import DownloadError, DownloadStatus
-from lvms_stat.report_job import ReportJob, validate_report_job
+from lvms_stat.report_job import ReportJob, batch_filename, validate_report_job
 from lvms_stat.control_identity import ControlIdentity
 
 
@@ -264,6 +264,20 @@ class BatchRunnerTests(unittest.TestCase):
         self.assertTrue(
             (harness.config.profile_directory.parent / "rådata").is_dir()
         )
+
+    def test_resumes_batch_by_skipping_existing_completed_report(self) -> None:
+        harness = BatchHarness()
+        output_directory = harness.config.profile_directory.parent / "rådata"
+        output_directory.mkdir(parents=True, exist_ok=True)
+        first_job = report_job("ordered")
+        (output_directory / batch_filename(first_job)).write_text("existing")
+
+        result, output = self.run_harness(harness)
+
+        self.assertEqual(result, 0)
+        self.assertNotIn("populate:ordered", harness.events)
+        self.assertEqual(harness.completed, ["answered", "extraction"])
+        self.assertIn("Batch job already complete: ordered.", output)
 
     def test_reports_numeric_progress_without_job_or_report_details(self) -> None:
         harness = BatchHarness()

@@ -150,8 +150,16 @@ def run_report_batch(
         jobs = select_batch_jobs(active.jobs_load(jobs_path), job_keys)
         set_stage("output_check")
         filenames = tuple(batch_filename(job) for job in jobs)
-        if any((output_directory / name).exists() for name in filenames):
-            raise RuntimeError("batch destination already exists")
+        pending = []
+        for job, filename in zip(jobs, filenames, strict=True):
+            if (output_directory / filename).exists():
+                stream.write(f"Batch job already complete: {job.job_key}.\n")
+            else:
+                pending.append((job, filename))
+
+        if not pending:
+            stream.write("Batch already complete.\n")
+            return 0
 
         edge, connection, page = open_page(config, active, stage=set_stage)
         set_stage("download_setup")
@@ -170,12 +178,10 @@ def run_report_batch(
             active.sleeper,
         )
 
-        for index, (job, filename) in enumerate(
-            zip(jobs, filenames, strict=True), start=1
-        ):
+        for index, (job, filename) in enumerate(pending, start=1):
             current_job = job.job_key
             if progress is not None:
-                progress(index, len(jobs))
+                progress(index, len(pending))
             set_stage(f"report_{index}_clear")
             contract = _wait_for_page(page, config.expected_origin, active)
             actions.activate(contract.clear)
