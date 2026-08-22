@@ -264,7 +264,7 @@ class BatchNavigationTests(unittest.TestCase):
         assert anchor is not None
         self.assertEqual(anchor.control.tag, "SPAN")
         self.assertIn(
-            '"td,a,button,span"',
+            '"td.sitemap_TramStopNormText,td,a,button,span"',
             more.expressions[0],
         )
 
@@ -280,7 +280,7 @@ class BatchNavigationTests(unittest.TestCase):
                 "Eksterne rapporter",
             )
 
-    def test_navigation_accepts_unclassed_lvms_tram_line_for_defined_reports(self) -> None:
+    def test_navigation_prioritizes_actual_lvms_tram_stop_text_cell(self) -> None:
         tram_line = FakeSafePage(
             raw_document(
                 "top",
@@ -296,9 +296,9 @@ class BatchNavigationTests(unittest.TestCase):
         assert anchor is not None
         self.assertEqual(anchor.control.tag, "TD")
         expression = tram_line.expressions[0]
-        self.assertIn('"td,a,button,span"', expression)
+        self.assertIn('"td.sitemap_TramStopNormText,td,a,button,span"', expression)
         self.assertIn('matches.find((match) => match.control.matches(', expression)
-        self.assertIn('"td"', expression)
+        self.assertIn('"td.sitemap_TramStopNormText"', expression)
         self.assertIn("tramLine || matches[0]", expression)
 
     def test_navigator_handles_direct_wide_and_narrow_responsive_routes(self) -> None:

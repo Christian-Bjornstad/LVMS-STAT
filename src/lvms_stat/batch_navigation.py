@@ -175,7 +175,7 @@ def _navigation_anchor_script(label: str) -> str:
   for (const entry of documents) {{
     for (const control of Array.from(
       entry.document.querySelectorAll(
-        "td,a,button,span"
+        "td.sitemap_TramStopNormText,td,a,button,span"
       )
     )) {{
       if (!visible(control)) continue;
@@ -188,7 +188,7 @@ def _navigation_anchor_script(label: str) -> str:
   }}
   const tramLine = normalizedWanted === clean("Definerte rapporter")
     ? matches.find((match) => match.control.matches(
-        "td"
+        "td.sitemap_TramStopNormText"
       ))
     : null;
   const selected = tramLine || matches[0];
