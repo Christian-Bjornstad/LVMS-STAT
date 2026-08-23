@@ -12,14 +12,31 @@ build/
 
 # Local configuration and authenticated Edge state must never be committed.
 config.json
+config.json.*.bak
+*.bak
+start.log
+jobs.json
 *.local.json
 .env
 .env.*
 edge-profile/
+browser_profiles/
 downloads/
+contracts/
+data/
 raw-reports/
+rådata/
 processed-reports/
+workflows/
+*.workflow.json
 *.csv
 *.xlsx
 *.xls
 *.har
+*.crdownload
+*.partial
+*.batch.log
+batch-logs/
+
+# Local statistics root - may contain patient-derived CSVs, never commit
+Statistikk/
