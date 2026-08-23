@@ -108,6 +108,29 @@ def _cursor_shape() -> Any:
     return QtCore.Qt.CursorShape
 
 
+def path_status(path_text: str) -> str:
+    """Human status for a configured folder: exists / auto-created."""
+    text = (path_text or "").strip()
+    if not text:
+        return ""
+    if Path(text).is_dir():
+        return "✓ mappen finnes"
+    return "⚠ mappen finnes ikke ennå - opprettes automatisk ved bruk"
+
+
+def default_codes_text(unit_key: str) -> str:
+    """The built-in code list for a unit, one analysis code per line."""
+    from lvms_stat.settings_store import DEFAULT_UNITS
+
+    unit = DEFAULT_UNITS.get(unit_key)
+    if not isinstance(unit, dict):
+        return ""
+    codes = unit.get("analysis_codes")
+    if not isinstance(codes, list):
+        return ""
+    return "\n".join(str(code) for code in codes)
+
+
 def _nav_button(text: str) -> Any:
     """A sidebar navigation toggle (checkable, mutually exclusive group)."""
     _, QtWidgets = load_pyqt6()
@@ -418,12 +441,30 @@ def build_dashboard(
     dl_caption.setObjectName("Muted")
     dl_caption.setWordWrap(True)
     field_downloads = QtWidgets.QLineEdit()
+    root_status = QtWidgets.QLabel("")
+    root_status.setObjectName("Muted")
+    prof_status = QtWidgets.QLabel("")
+    prof_status.setObjectName("Muted")
+    dl_status = QtWidgets.QLabel("")
+    dl_status.setObjectName("Muted")
+    for editor, status in (
+        (field_root, root_status),
+        (field_profile, prof_status),
+        (field_downloads, dl_status),
+    ):
+        # Live ✓/⚠ as the user edits or the form is filled.
+        editor.textChanged.connect(
+            lambda text, label=status: label.setText(path_status(text))
+        )
     folders_inner.addWidget(root_caption)
     folders_inner.addWidget(field_root)
+    folders_inner.addWidget(root_status)
     folders_inner.addWidget(prof_caption)
     folders_inner.addWidget(field_profile)
+    folders_inner.addWidget(prof_status)
     folders_inner.addWidget(dl_caption)
     folders_inner.addWidget(field_downloads)
+    folders_inner.addWidget(dl_status)
     form.addWidget(folders_card)
 
     units_card = QtWidgets.QFrame()
@@ -462,6 +503,22 @@ def build_dashboard(
     units_note.setObjectName("Muted")
     units_note.setWordWrap(True)
     units_inner.addWidget(units_note)
+
+    def restore_default_codes() -> None:
+        """Put the built-in spec lists back into both editors."""
+        field_hemato_codes.setPlainText(default_codes_text("hemato"))
+        field_solide_codes.setPlainText(default_codes_text("solide"))
+        save_status.setText(
+            "Standard analysekoder fra spesifikasjonen satt inn - "
+            "husk å lagre."
+        )
+
+    restore_button = QtWidgets.QPushButton("Gjenopprett standard analysekoder")
+    restore_button.setObjectName("Ghost")
+    restore_button.setCursor(_cursor_shape().PointingHandCursor)
+    restore_button.clicked.connect(restore_default_codes)
+    units_inner.addWidget(restore_button)
+
     form.addWidget(units_card)
 
     save_bar = QtWidgets.QHBoxLayout()
