@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from lvms_stat.config import ConfigError, validate_app_config
-from lvms_stat.units import UnitsConfigError, validate_units
+from lvms_stat.units import Unit, UnitsConfigError, load_units, validate_units
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 
@@ -315,6 +315,24 @@ def load_settings() -> Settings:
         ),
         units=units,
     )
+
+
+def load_effective_units(config_path: Path) -> tuple[Unit, ...]:
+    """Load the unit contract actually used by fetch/status/processing.
+
+    App-managed settings need the same repair path as the Oppsett page;
+    otherwise the UI displays healed codes while the runtime still reads
+    the stale sibling ``units.json``.  Explicit external configs retain
+    their normal file-based behavior.
+    """
+    path = Path(config_path)
+    try:
+        app_managed = path.resolve() == settings_path().resolve()
+    except (OSError, SettingsError):
+        app_managed = False
+    if app_managed:
+        return validate_units({"units": load_settings().units})
+    return load_units(path.with_name("units.json"))
 
 
 def _atomic_write(path: Path, text: str) -> None:

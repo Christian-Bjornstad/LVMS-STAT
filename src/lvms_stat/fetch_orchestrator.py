@@ -31,7 +31,8 @@ from lvms_stat.job_builder import (
 )
 from lvms_stat.manifest import ManifestStore, load_statistics_settings
 from lvms_stat.report_job import ReportJob, batch_filename, select_batch_jobs
-from lvms_stat.units import Unit, UnitsConfigError, load_units
+from lvms_stat.settings_store import load_effective_units
+from lvms_stat.units import Unit, UnitsConfigError
 
 
 class FetchOrchestrationError(ValueError):
@@ -66,7 +67,7 @@ def _statistics_root(config_path: Path) -> Path:
 
 def _load_unit(config_path: Path, unit_key: str) -> Unit:
     try:
-        units = load_units(config_path.with_name("units.json"))
+        units = load_effective_units(config_path)
     except UnitsConfigError as exc:
         raise FetchOrchestrationError(str(exc)) from exc
     for unit in units:

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import lvms_stat.settings_store as settings_store
 from lvms_stat.settings_store import (
     DEFAULT_EXTRACTION_CODES,
     DEFAULT_UNITS,
@@ -220,6 +221,47 @@ def test_legacy_report_routing_self_heals(local_home: Path) -> None:
         assert extraction["fetch_report_id"] == "PAT-DIT-RESULTATER-OU"
         assert extraction["report_id"] == "PAT-DIT-EKSTRAKSJON-OU"
         assert extraction["analysis_codes"] == list(DEFAULT_EXTRACTION_CODES)
+
+
+def test_runtime_uses_healed_app_managed_units(local_home: Path) -> None:
+    """Fetch/status/processing must consume the same healed units as Oppsett."""
+    import copy
+    import json
+
+    root = settings_root()
+    root.mkdir(parents=True, exist_ok=True)
+    settings_path().write_text(
+        json.dumps({"landing_url": "https://lvms.sykehus.no/clims"}),
+        encoding="utf-8",
+    )
+    legacy_units = copy.deepcopy(DEFAULT_UNITS)
+    legacy_units["solide"]["analysis_codes"] = ["EKSTRAKSJON-SO-OU"]
+    legacy_units["solide"]["reports"] = [
+        {"job_key": "ordered", "report_id": "PAT-DIT-ANTALL-OU"},
+        {"job_key": "answered", "report_id": "PAT-DIT-RESULTATER-OU"},
+        {
+            "job_key": "extraction",
+            "report_id": "PAT-DIT-EKSTRAKSJON-OU",
+        },
+    ]
+    (root / "units.json").write_text(
+        json.dumps({"units": legacy_units}), encoding="utf-8"
+    )
+
+    assert hasattr(settings_store, "load_effective_units")
+    units = {
+        unit.key: unit
+        for unit in settings_store.load_effective_units(settings_path())
+    }
+
+    solide = units["solide"]
+    assert len(solide.analysis_codes) == len(
+        DEFAULT_UNITS["solide"]["analysis_codes"]
+    )
+    extraction = solide.report_by_key("extraction")
+    assert extraction.fetch_report_id == "PAT-DIT-RESULTATER-OU"
+    assert extraction.report_id == "PAT-DIT-EKSTRAKSJON-OU"
+    assert extraction.analysis_codes == DEFAULT_EXTRACTION_CODES
 
 
 def test_partial_units_json_keeps_user_units_but_heals_missing_ones(

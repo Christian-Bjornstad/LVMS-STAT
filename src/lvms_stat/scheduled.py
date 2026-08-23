@@ -20,6 +20,7 @@ from lvms_stat.fetch_orchestrator import (
     run_incremental_fetch,
 )
 from lvms_stat.post_processing import process_unit
+from lvms_stat.settings_store import load_effective_units
 
 Fetcher = Callable[..., FetchOutcome]
 
@@ -66,11 +67,7 @@ def _process_after_fetch(
 ) -> None:
     """Refresh Prosessert/*.csv after a successful fetch."""
     try:
-        from lvms_stat.units import load_units
-
-        units = {unit.key: unit for unit in load_units(
-            config_path.with_name("units.json")
-        )}
+        units = {unit.key: unit for unit in load_effective_units(config_path)}
         unit = units[unit_key]
         statistics_root_str = None
         try:
@@ -130,10 +127,8 @@ def run_scheduled(
     day = today or date.today()
     if unit_keys is None:
         try:
-            from lvms_stat.units import load_units
-
             unit_keys = tuple(
-                unit.key for unit in load_units(config_path.with_name("units.json"))
+                unit.key for unit in load_effective_units(config_path)
             )
         except Exception as exc:
             if stream is not None:

@@ -12,7 +12,8 @@ from pathlib import Path
 
 from lvms_stat.fetch_orchestrator import FetchOrchestrationError
 from lvms_stat.manifest import ManifestStore, load_statistics_settings
-from lvms_stat.units import Unit, UnitReport, load_units
+from lvms_stat.settings_store import load_effective_units
+from lvms_stat.units import Unit, UnitReport
 
 
 class DashboardStateError(ValueError):
@@ -57,7 +58,7 @@ def load_unit_statuses(config_path: Path, *, today: date) -> tuple[UnitStatus, .
     """Compute the display state for every configured unit."""
     statistics_root = _statistics_root(config_path)
     try:
-        units = load_units(config_path.with_name("units.json"))
+        units = load_effective_units(config_path)
     except Exception as exc:
         raise DashboardStateError(str(exc)) from exc
     store = ManifestStore(statistics_root / "manifest.sqlite")
