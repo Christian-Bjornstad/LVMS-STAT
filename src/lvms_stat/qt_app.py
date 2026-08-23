@@ -542,18 +542,77 @@ def build_dashboard(
             log_box.appendPlainText(str(message))
 
     def refresh_cards() -> None:
+        from lvms_stat.dashboard_state import RootUnavailableError
+        from lvms_stat.settings_store import settings_path as _sp
+
         try:
             statuses = load_unit_statuses(
                 effective_config, today=today_provider()
             )
-        except Exception:
+        except RootUnavailableError as exc:
+            # Setup is valid - only the storage location is unreachable
+            # (e.g. K: not mounted yet). Still show the unit cards, with
+            # manifest-dependent info marked as unknown.
             card_widgets.clear()
             while cards_grid.count():
                 item = cards_grid.takeAt(0)
                 widget = item.widget()
                 if widget is not None:
                     widget.deleteLater()
-            subtitle.setText("Appen er ikke satt opp - åpne «Oppsett» i menyen.")
+            try:
+                from lvms_stat.settings_store import load_settings as _load
+
+                offline_units = _load().units
+            except Exception:
+                offline_units = {}
+
+            class _OfflineUnit:
+                """Duck-typed Unit for cards when the manifest is away."""
+
+                def __init__(self, key: str, cfg: dict) -> None:
+                    self.key = key
+                    self.label = str(cfg.get("label", key))
+                    self._reports = cfg.get("reports", []) or []
+
+            for slot, (unit_key, unit_cfg) in enumerate(
+                sorted(offline_units.items())
+            ):
+                make_card(_OfflineUnit(unit_key, unit_cfg), slot)
+                widgets = card_widgets[unit_key]
+                widgets["badge"].setText("● Klar - manifest utilgjengelig")
+                widgets["badge"].setStyleSheet(f"color: {WARN_AMBER};")
+                codes = unit_cfg.get("analysis_codes", []) or []
+                lines = [
+                    f"{report.get('report_id', '?')} - sist hentet: ukjent"
+                    for report in unit_cfg.get("reports", [])
+                    if isinstance(report, dict)
+                ]
+                lines.append(f"{len(codes)} analysekoder")
+                widgets["detail"].setText("\n".join(lines))
+            subtitle.setText(
+                f"⚠ {exc} - oppsettet er lagret og klart, men mappen er "
+                "ikke tilgjengelig (f.eks. K: er ikke koblet til enda)."
+            )
+            return
+        except Exception:
+            # Genuinely unusable setup: no saved settings at all, or a
+            # config that fails validation.
+            if not _sp().exists():
+                message = (
+                    "Appen er ikke satt opp - åpne «Oppsett» i menyen."
+                )
+            else:
+                message = (
+                    "Kunne ikke lese oppsettet - åpne «Oppsett» og trykk "
+                    "«Lagre oppsett» på nytt."
+                )
+            card_widgets.clear()
+            while cards_grid.count():
+                item = cards_grid.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.deleteLater()
+            subtitle.setText(message)
             return
         while cards_grid.count():
             item = cards_grid.takeAt(0)

@@ -62,9 +62,20 @@ def load_unit_statuses(config_path: Path, *, today: date) -> tuple[UnitStatus, .
         raise DashboardStateError(str(exc)) from exc
     store = ManifestStore(statistics_root / "manifest.sqlite")
     statuses: list[UnitStatus] = []
-    for unit in units:
-        statuses.append(_unit_status(store, unit, today=today))
+    try:
+        for unit in units:
+            statuses.append(_unit_status(store, unit, today=today))
+    except OSError as exc:
+        # The setup itself is valid - only the storage location cannot be
+        # reached (e.g. K: not mounted yet). Distinct from "not set up".
+        raise RootUnavailableError(
+            f"Statistikk-mappen kan ikke nås: {statistics_root}"
+        ) from exc
     return tuple(statuses)
+
+
+class RootUnavailableError(DashboardStateError):
+    """Setup is saved and valid, but the statistics root is unreachable."""
 
 
 def _statistics_root(config_path: Path) -> Path:
