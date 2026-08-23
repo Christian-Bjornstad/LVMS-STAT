@@ -30,15 +30,13 @@ class PythonFellesScriptTests(unittest.TestCase):
         self.assertEqual(calls[0][-1], str(project))
         self.assertEqual(imported, ["PyQt6", "websocket", "lvms_stat"])
 
-    def test_start_script_requires_local_files_and_dispatches_app(self) -> None:
+    def test_start_script_needs_no_local_json_files_and_dispatches_app(self) -> None:
         functions = runpy.run_path(str(ROOT / "start_python_felles.py"))
         calls: list[list[str]] = []
 
         with tempfile.TemporaryDirectory() as temporary:
             project = Path(temporary)
             (project / "src" / "lvms_stat").mkdir(parents=True)
-            (project / "config.json").write_text("{}", encoding="utf-8")
-            (project / "jobs.json").write_text("{}", encoding="utf-8")
             result = functions["start"](
                 project_dir=project,
                 user_site=project / "user-site",
@@ -46,10 +44,7 @@ class PythonFellesScriptTests(unittest.TestCase):
             )
 
         self.assertEqual(result, 0)
-        self.assertEqual(
-            calls,
-            [["app", "--config", str(project / "config.json")]],
-        )
+        self.assertEqual(calls, [["app"]])
 
 
 if __name__ == "__main__":

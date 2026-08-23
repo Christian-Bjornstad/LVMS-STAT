@@ -7,6 +7,7 @@ from pathlib import Path
 from lvms_stat import __version__
 from lvms_stat.batch_runner import run_report_batch
 from lvms_stat.qt_app import run_app
+from lvms_stat.settings_store import settings_path
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -25,7 +26,14 @@ def build_parser() -> argparse.ArgumentParser:
     app_parser = subcommands.add_parser(
         "app", help="Open the statistics dashboard window."
     )
-    app_parser.add_argument("--config", type=Path, required=True)
+    app_parser.add_argument(
+        "--config",
+        type=Path,
+        help=(
+            "Optional configuration file. Defaults to the app-managed "
+            "settings under Local AppData."
+        ),
+    )
 
     batch_parser = subcommands.add_parser(
         "run-batch", help="Automatically export explicit local report jobs."
@@ -63,7 +71,7 @@ def main(
     runner = scheduled_runner or run_scheduled
     arguments = build_parser().parse_args(argv)
     if arguments.command == "app":
-        return app_runner(arguments.config)
+        return app_runner(arguments.config or settings_path())
     if arguments.command == "auto":
         return runner(
             arguments.config,

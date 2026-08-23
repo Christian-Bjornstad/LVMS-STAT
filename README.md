@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/python-3.14-3776AB?logo=python&logoColor=white)
 ![PyQt6](https://img.shields.io/badge/GUI-PyQt6-41CD52?logo=qt&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-191%20passing-6ccb5f)
+![Tests](https://img.shields.io/badge/tests-223%20passing-6ccb5f)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-0078D4?logo=windows11&logoColor=white)
 
 Automatisert statistikk-pipeline for molekylær patologi: henter
@@ -83,8 +83,8 @@ uv pip install --system -e . PyQt6
 :: valider hele pipeline mot ekte data lokalt
 python scripts/local_pipeline_test.py
 
-:: åpne dashbordet
-python -m lvms_stat app --config config.example.json
+:: åpne dashbordet (ingen filomdøping nødvendig)
+python -m lvms_stat app
 ```
 
 E2E-testen simulerer K-strukturen under
@@ -103,11 +103,22 @@ PASS [solide]: matches R gold standard
 
 ```cmd
 setx LVMS_STATISTICS_ROOT "K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Hemato\Statistikk"
-python -m lvms_stat auto --config config.json
+python -m lvms_stat auto --config "%LOCALAPPDATA%\LVMS-STAT\settings.json"
 ```
 
 Full steg-for-steg guide (konfig, lookup-filer, første kjøring,
 Task Scheduler, feilsøking): **[JOBBS-PC.md](JOBBS-PC.md)**.
+
+Repoet inneholder både `config.json`, `jobs.json` og `units.json` samt
+tilsvarende `*.example.json`. De inncheckede filene er trygge
+standard-/demofiler uten passord. GUI-et og eMolPat bruker ikke disse som
+personlig konfigurasjon: **Oppsett** lagrer aktive verdier i
+`%LOCALAPPDATA%\LVMS-STAT\settings.json` og `units.json`, slik at `git pull`
+ikke overskriver jobb-PC-oppsettet. `jobs.json` er kun relevant for den
+eksplisitte `run-batch`-kommandoen.
+
+Integrasjon i eMolPat er beskrevet i
+**[docs/EMOLPAT_INTEGRASJON.md](docs/EMOLPAT_INTEGRASJON.md)**.
 
 ---
 

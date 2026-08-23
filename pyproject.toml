@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lvms-stat"
-version = "0.1.0"
+version = "2.0.0"
 description = "Privacy-safe, supervised LVMS statistics automation"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 lvms-stat = "lvms_stat.__main__:main"
+lvms-stat-portal = "lvms_stat.portal:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

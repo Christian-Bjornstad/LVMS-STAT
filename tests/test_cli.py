@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from lvms_stat.__main__ import build_parser, main
 
@@ -27,6 +28,19 @@ class CliTests(unittest.TestCase):
         )
         self.assertEqual(result, 9)
         self.assertEqual(calls, [Path("safe.json")])
+
+    def test_app_without_config_uses_app_managed_settings(self) -> None:
+        calls: list[Path] = []
+        managed = Path("C:/Users/test/AppData/Local/LVMS-STAT/settings.json")
+
+        with patch("lvms_stat.__main__.settings_path", return_value=managed):
+            result = main(
+                ["app"],
+                app_runner=lambda path: calls.append(path) or 0,
+            )
+
+        self.assertEqual(result, 0)
+        self.assertEqual(calls, [managed])
 
     def test_auto_dispatches_scheduled_runner_with_optional_units(self) -> None:
         calls: list[dict[str, object]] = []
