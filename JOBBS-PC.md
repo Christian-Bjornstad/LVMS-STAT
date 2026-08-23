@@ -8,6 +8,10 @@ jobb-PC-en med K:\ montert. Følg kapitlene i rekkefølge.
 > åpne `python -m lvms_stat app` → **⚙ Oppsett** → verifisere feltene →
 > **Lagre oppsett**. JSON-redigering er kun reserve hvis noe henger.
 
+> Repoet inneholder også `config.json`, `jobs.json`, `units.json` og
+> tilsvarende `*.example.json`. Du trenger ikke gi noen av dem nytt navn.
+> GUI-et bruker de brukerspesifikke filene under `%LOCALAPPDATA%\LVMS-STAT`.
+
 > **Kort versjon** (hvis alt allerede er satt opp fra før):
 > ```cmd
 > python -m lvms_stat auto --config "%LOCALAPPDATA%\LVMS-STAT\settings.json"

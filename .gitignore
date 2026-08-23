@@ -10,12 +10,10 @@ build/
 *.egg-info/
 .worktrees/
 
-# Local configuration and authenticated Edge state must never be committed.
-config.json
+# Local overrides, backups, data, and authenticated Edge state stay uncommitted.
 config.json.*.bak
 *.bak
 start.log
-jobs.json
 *.local.json
 .env
 .env.*
