@@ -111,6 +111,24 @@ def run_incremental_fetch(
     jobs_path = config_path.with_name(f"jobs.generated-{unit.key}.json")
     _write_generated_jobs(jobs_path, jobs)
 
+    # Show the user exactly what will run and where each export lands.
+    # The extraction report ("PAK analysetid") intentionally RUNS under
+    # PAT-DIT-RESULTATER-OU in LVMS with its own EKSTRA* codes, while the
+    # CSV is saved as PAT-DIT-EKSTRAKSJON-OU - spell that out so the
+    # repeated report id in the review does not look like a bug.
+    for job in jobs:
+        stream.write(
+            f"Plan: {job.job_key} - rapport {job.report_id}"
+            f" ({len(job.analysis_codes)} analyser,"
+            f" {job.interval.created_from.isoformat()} til"
+            f" {job.interval.created_to.isoformat()})\n"
+        )
+        if job.report_id != job.output_stem:
+            stream.write(
+                f"Plan: filen lagres som {job.output_stem}__<fra>__<til>.csv"
+                f" (rapporten kjøres som {job.report_id} i LVMS)\n"
+            )
+
     job_keys = tuple(job.job_key for job in jobs)
     # job keys repeat across reports of one unit (ordered/answered/...),
     # so select by position instead: run_report_batch needs distinct keys.
@@ -224,6 +242,12 @@ def _archive_results(
             raise FetchOrchestrationError(str(exc)) from exc
         downloaded.append(filename)
         archived.append(str(outcome.archived_path))
+        stream.write(f"Arkivert: {filename} -> {outcome.archived_path}\n")
+    if not downloaded:
+        stream.write(
+            "Ingen nye CSV-filer ble funnet i nedlastingsmappen.\n"
+            f"Søkte i: {download_directory}\n"
+        )
     return FetchOutcome(
         unit_key=unit.key,
         downloaded=tuple(downloaded),

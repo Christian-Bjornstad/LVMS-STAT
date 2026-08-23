@@ -388,15 +388,38 @@ def build_dashboard(
     folders_inner = QtWidgets.QVBoxLayout(folders_card)
     folders_inner.setContentsMargins(16, 12, 16, 12)
     folders_inner.setSpacing(8)
-    folders_title = QtWidgets.QLabel("Mapper på denne maskinen")
+    folders_title = QtWidgets.QLabel("Mapper")
     folders_title.setObjectName("CardTitle")
     folders_inner.addWidget(folders_title)
-    prof_caption = QtWidgets.QLabel("Edge-profilmappe")
+
+    root_caption = QtWidgets.QLabel(
+        "Statistikk-rot - mappen alle data lagres i (f.eks. K:\\... "
+        "\\Statistikk). Opprettes automatisk ved første henting."
+    )
+    root_caption.setObjectName("Muted")
+    root_caption.setWordWrap(True)
+    field_root.setToolTip(
+        "Under denne mappen opprettes <enhet>/raa (rå-CSV-er), "
+        "<enhet>/merged og <enhet>/prosessert (antall.csv + "
+        "resultater.csv for Power BI) samt manifest.sqlite."
+    )
+
+    prof_caption = QtWidgets.QLabel(
+        "Edge-profilmappe - Edge-profilen appen bruker (kan være tom, "
+        "opprettes automatisk). Ikke din vanlige Edge-profil."
+    )
     prof_caption.setObjectName("Muted")
+    prof_caption.setWordWrap(True)
     field_profile = QtWidgets.QLineEdit()
-    dl_caption = QtWidgets.QLabel("Midlertidig nedlastingsmappe")
+    dl_caption = QtWidgets.QLabel(
+        "Midlertidig nedlastingsmappe - CSV-filene havner her først "
+        "før de arkiveres automatisk. Du trenger normalt ikke å se her."
+    )
     dl_caption.setObjectName("Muted")
+    dl_caption.setWordWrap(True)
     field_downloads = QtWidgets.QLineEdit()
+    folders_inner.addWidget(root_caption)
+    folders_inner.addWidget(field_root)
     folders_inner.addWidget(prof_caption)
     folders_inner.addWidget(field_profile)
     folders_inner.addWidget(dl_caption)
@@ -413,16 +436,28 @@ def build_dashboard(
     units_inner.addWidget(units_title)
     field_hemato_codes = QtWidgets.QPlainTextEdit()
     field_solide_codes = QtWidgets.QPlainTextEdit()
+    for editor in (field_hemato_codes, field_solide_codes):
+        editor.setMinimumHeight(120)
     for caption, editor in (
-        ("Hemato - analysekoder (én per linje)", field_hemato_codes),
-        ("Solide - analysekoder (én per linje)", field_solide_codes),
+        (
+            "Hemato - analysekoder, rapport 1+2 (én per linje, "
+            "ekstraksjon har sin egen liste)",
+            field_hemato_codes,
+        ),
+        (
+            "Solide - analysekoder, rapport 1+2 (én per linje, "
+            "ekstraksjon har sin egen liste)",
+            field_solide_codes,
+        ),
     ):
         label = QtWidgets.QLabel(caption)
         label.setObjectName("Muted")
         units_inner.addWidget(label)
         units_inner.addWidget(editor)
     units_note = QtWidgets.QLabel(
-        "Rapport-ID-er og profil følger med enhetene og skal normalt ikke endres."
+        "Analysekodene styres per rapport (bestilt / besvart / "
+        "ekstraksjon) og følger med enhetene fra spesifikasjonen - "
+        "normalt skal de ikke endres her."
     )
     units_note.setObjectName("Muted")
     units_note.setWordWrap(True)
@@ -688,20 +723,21 @@ def build_dashboard(
                 try:
                     from lvms_stat.settings_store import load_settings
 
-                    root = Path(load_settings().statistics_root)
-                    unit_root = root / unit_key
+                    settings_now = load_settings()
+                    unit_root = (
+                        Path(settings_now.statistics_root) / unit_key
+                    )
                     post(
                         "log",
-                        "Filer: rådata arkiveres i "
+                        "Filer: rå-CSV-er arkiveres under "
                         f"{unit_root / 'raa'}",
                     )
                     post(
                         "log",
-                        f"Filer: prosesserte CSV-er i "
-                        f"{unit_root / 'prosessert'}",
+                        "Filer: prosesserte filer for Power BI i "
+                        f"{unit_root / 'prosessert'} (antall.csv, "
+                        "resultater.csv)",
                     )
-                    downloads = Path(load_settings().download_directory)
-                    post("log", f"Filer: Edge-nedlastinger i {downloads}")
                 except Exception:
                     pass
                 if getattr(outcome, "downloaded", ()) or getattr(
