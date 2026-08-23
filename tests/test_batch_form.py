@@ -202,7 +202,7 @@ class RefreshingReportIdState(FormState):
         return super().evaluate_safe(expression)
 
     def commit_choice(self, control: DocumentControlIdentity) -> None:
-        if control.control.element_id != "report-id-2":
+        if control.control.element_id != "report-id-3":
             raise AssertionError("stale report id identity")
         super().commit_choice(control)
 
@@ -347,6 +347,7 @@ class BatchFormTests(unittest.TestCase):
                 ("choose", "top", "jobtypeselector", "TYPE_A"),
                 ("choose", "_nav_frame1", "category", "CATEGORY_A"),
                 ("choose", "_nav_frame1", "report-id", "REPORT-A"),
+                ("choose", "_nav_frame1", "report-id", "REPORT-A"),
                 ("replace", "_nav_frame1", "analyses", "ANALYSIS-A,ANALYSIS-B"),
                 ("replace", "_nav_frame1", "created-from", "01.08.2026"),
                 ("replace", "_nav_frame1", "created-to", "07.08.2026"),
@@ -411,7 +412,7 @@ class BatchFormTests(unittest.TestCase):
 
         self.assertEqual(state.created_to_checks, 2)
 
-    def test_populate_rediscovers_report_id_before_pressing_enter(self) -> None:
+    def test_populate_reapplies_and_rediscovers_report_id_before_enter(self) -> None:
         state = RefreshingReportIdState()
         form = BatchReportForm(
             state.page,
@@ -423,7 +424,17 @@ class BatchFormTests(unittest.TestCase):
 
         form.populate(defined_reports_page(), job())
 
-        self.assertEqual(state.report_id_checks, 2)
+        report_choices = [
+            call for call in state.calls if call[2].startswith("report-id-")
+        ]
+        self.assertEqual(
+            report_choices,
+            [
+                ("choose", "_nav_frame1", "report-id-1", "REPORT-A"),
+                ("choose", "_nav_frame1", "report-id-2", "REPORT-A"),
+            ],
+        )
+        self.assertEqual(state.report_id_checks, 3)
 
     def test_wait_until_clear_allows_persistent_empty_choice_controls(self) -> None:
         page = ClearingPage(dynamic_roles_present=False)

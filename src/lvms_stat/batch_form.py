@@ -256,6 +256,13 @@ class BatchReportForm:
         report_id = self._wait_for("report_id")
         self._actions.choose_text(report_id, job.report_id)
         self._sleep(0.5)
+        # LVMS rebuilds the parameter grid after a report choice.  On the
+        # work computer that refresh sometimes replaced the SELECT with a
+        # new, empty control before Enter was sent.  Reapply the choice to
+        # the live control, then rediscover once more before committing it.
+        report_id = self._wait_for("report_id")
+        self._actions.choose_text(report_id, job.report_id)
+        self._sleep(0.5)
         report_id = self._wait_for("report_id")
         self._actions.commit_choice(report_id)
         analysis_codes = self._wait_for("analysis_codes")
