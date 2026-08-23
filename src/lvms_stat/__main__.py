@@ -4,6 +4,7 @@ import argparse
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
+from lvms_stat import __version__
 from lvms_stat.batch_runner import run_report_batch
 from lvms_stat.qt_app import run_app
 
@@ -12,6 +13,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="lvms-stat",
         description="Visible LVMS statistics automation.",
+    )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"lvms-stat {__version__}",
+        help="Show the installed version and exit.",
     )
     subcommands = parser.add_subparsers(dest="command", required=True)
 

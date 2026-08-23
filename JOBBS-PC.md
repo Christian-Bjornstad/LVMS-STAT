@@ -32,6 +32,20 @@ Hvis PyQt6 mangler:
 uv pip install --system PyQt6
 ```
 
+**Sjekk at du har siste versjon før du begynner** (gammel kode ga
+«ingen endringer»-forvirring og feil rapport-ID ved ekstraksjon):
+
+```cmd
+cd C:\Users\molpa\Documents\LVMS-STAT
+git pull
+python -m lvms_stat --version
+```
+
+Versjonen skal være **2.0.0** eller nyere. Er den det, har du alle
+fiksene (bl.a. at ekstraksjon kjører RESULTATER-rapporten men lagres
+som EKSTRAKSJON-fil). Stemmer ikke: `git log --oneline -1` og se om
+du står på `main` med de nyeste commitene.
+
 ---
 
 ## 2. Sett opp alt i appen (engang)
@@ -50,9 +64,9 @@ verdier — du trenger bare å kontrollere dem:
   `K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Hemato\Statistikk`
 - **Edge-profilmappe / nedlastingsmappe** — forhåndsfylt under
   `%LOCALAPPDATA%\LVMS-STAT\`
-- **Enheter** — hemato (70 analysekoder) og solide (1) ligger ferdig,
-  inkludert rapport-ID-er og profil; rediger kun hvis analysetilbudet
-  endrer seg
+- **Enheter** — hemato (70 analysekoder) og solide (70 + 25
+  ekstraksjonskoder) ligger ferdig, inkludert rapport-ID-er og profil;
+  rediger kun hvis analysetilbudet endrer seg
 
 Trykk **Lagre oppsett**. Appen validerer mot nøyaktig de samme reglene
 pipelinen bruker, og skriver to filer:
