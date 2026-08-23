@@ -37,3 +37,6 @@ workflows/
 *.partial
 *.batch.log
 batch-logs/
+
+# Local statistics root - may contain patient-derived CSVs, never commit
+Statistikk/
