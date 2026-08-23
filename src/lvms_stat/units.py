@@ -26,10 +26,24 @@ class UnitsConfigError(ValueError):
 
 @dataclass(frozen=True)
 class UnitReport:
-    """One tracked LVMS report within one unit."""
+    """One tracked LVMS report within one unit.
+
+    ``fetch_report_id`` is the report LVMS runs; ``report_id`` is what
+    the export is saved and archived as. For the extraction report
+    ("PAK analysetid") these differ: it runs under the answered-report
+    id (``PAT-DIT-RESULTATER-OU``) with its own EKSTRA* code list, but
+    the export is stored as ``PAT-DIT-EKSTRAKSJON-OU``.
+    ``analysis_codes`` overrides the unit-level code list for this one
+    report (again needed by the extraction report).
+    """
 
     job_key: str
+    # The id LVMS uses to RUN this report.
+    fetch_report_id: str
+    # The id the export is saved and archived under.
     report_id: str
+    # None = inherit the unit-level analysis_codes.
+    analysis_codes: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -86,7 +100,48 @@ def _reports(raw: Mapping[str, object]) -> tuple[UnitReport, ...]:
         if job_key in keys:
             raise UnitsConfigError("unit report job keys contain duplicates")
         keys.add(job_key)
-        reports.append(UnitReport(job_key=job_key, report_id=report_id))
+        fetch_id_raw = item.get("fetch_report_id")
+        if isinstance(fetch_id_raw, str) and fetch_id_raw.strip():
+            fetch_report_id = fetch_id_raw.strip()
+            if not OUTPUT_STEM_PATTERN.fullmatch(fetch_report_id):
+                raise UnitsConfigError(
+                    "unit report fetch id is invalid"
+                )
+        else:
+            # Backwards compatible: without fetch_report_id the report
+            # runs under its own id.
+            fetch_report_id = report_id
+        codes_raw = item.get("analysis_codes")
+        report_codes: tuple[str, ...] | None = None
+        if codes_raw is not None:
+            if not isinstance(codes_raw, list) or not 1 <= len(codes_raw) <= 500:
+                raise UnitsConfigError(
+                    "unit report analysis codes are invalid"
+                )
+            parsed: list[str] = []
+            for code in codes_raw:
+                if (
+                    not isinstance(code, str)
+                    or not CODE_PATTERN.fullmatch(code.strip())
+                ):
+                    raise UnitsConfigError(
+                        "unit report analysis code is invalid"
+                    )
+                stripped = code.strip()
+                if stripped in parsed:
+                    raise UnitsConfigError(
+                        "unit report analysis codes contain duplicates"
+                    )
+                parsed.append(stripped)
+            report_codes = tuple(parsed)
+        reports.append(
+            UnitReport(
+                job_key=job_key,
+                fetch_report_id=fetch_report_id,
+                report_id=report_id,
+                analysis_codes=report_codes,
+            )
+        )
     return tuple(reports)
 
 

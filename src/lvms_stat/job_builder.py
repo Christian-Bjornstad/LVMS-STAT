@@ -52,8 +52,15 @@ def build_report_job(
     analysis_codes: tuple[str, ...],
     template: UnitTemplate,
 ) -> ReportJob:
-    """Create one validated ReportJob for a planned fetch."""
-    if not analysis_codes:
+    """Create one validated ReportJob for a planned fetch.
+
+    The job runs in LVMS under ``fetch.fetch_report_id`` but the export
+    is saved as ``fetch.report.report_id`` (they differ for the
+    extraction report). A report-level ``analysis_codes`` override wins
+    over the unit-level list.
+    """
+    codes = fetch.report.analysis_codes or tuple(analysis_codes)
+    if not codes:
         raise JobBuildError(
             f"{fetch.unit.key}/{fetch.report.report_id}: "
             "analysis_codes is missing"
@@ -62,8 +69,8 @@ def build_report_job(
         job_key=fetch.report.job_key,
         report_type=template.report_type,
         category=template.category,
-        report_id=fetch.report.report_id,
-        analysis_codes=tuple(analysis_codes),
+        report_id=fetch.report.fetch_report_id,
+        analysis_codes=codes,
         interval=ReportInterval(fetch.created_from, fetch.created_to),
         output_stem=fetch.report.report_id,
     )

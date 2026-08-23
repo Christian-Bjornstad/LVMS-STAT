@@ -18,7 +18,7 @@ def make_fetch(report_id: str = "PAT-DIT-ANTALL-OU") -> object:
     unit = Unit(
         key="hemato",
         label="Hemato",
-        reports=(UnitReport("ordered", report_id),),
+        reports=(UnitReport("ordered", report_id, report_id),),
         analysis_codes=("CALR-OU",),
     )
     from lvms_stat.incremental import PlannedFetch
@@ -67,8 +67,10 @@ def test_build_jobs_for_multiple_fetches(tmp_path) -> None:
         key="hemato",
         label="Hemato",
         reports=(
-            UnitReport("ordered", "PAT-DIT-ANTALL-OU"),
-            UnitReport("answered", "PAT-DIT-RESULTATER-OU"),
+            UnitReport("ordered", "PAT-DIT-ANTALL-OU", "PAT-DIT-ANTALL-OU"),
+            UnitReport(
+                "answered", "PAT-DIT-RESULTATER-OU", "PAT-DIT-RESULTATER-OU"
+            ),
         ),
         analysis_codes=("CALR-OU",),
     )
@@ -94,6 +96,41 @@ def test_build_jobs_for_multiple_fetches(tmp_path) -> None:
 def test_build_jobs_rejects_empty_fetches() -> None:
     with pytest.raises(JobBuildError):
         build_jobs_for_unit((), analysis_codes=("CALR-OU",), template=TEMPLATE)
+
+
+def test_extraction_report_runs_under_resultater_id() -> None:
+    """PAK analysetid runs under RESULTATER with EKSTRA codes but is
+    saved as PAT-DIT-EKSTRAKSJON-OU."""
+    from lvms_stat.incremental import PlannedFetch
+
+    unit = Unit(
+        key="solide",
+        label="Solide",
+        profile="solide",
+        reports=(
+            UnitReport(
+                "extraction",
+                "PAT-DIT-RESULTATER-OU",
+                "PAT-DIT-EKSTRAKSJON-OU",
+                analysis_codes=("EKSTRAKSJON-OU", "EKSTRAGENXRNA-OU"),
+            ),
+        ),
+        analysis_codes=("POLE-OU",),
+    )
+    fetch = PlannedFetch(
+        unit=unit,
+        report=unit.reports[0],
+        created_from=date(2024, 1, 1),
+        created_to=date(2026, 8, 23),
+    )
+    job = build_report_job(fetch, analysis_codes=unit.analysis_codes,
+                           template=UnitTemplate(unit_key="solide"))
+    # LVMS must run the RESULTATER report...
+    assert job.report_id == "PAT-DIT-RESULTATER-OU"
+    # ...but the export is saved as the extraction id.
+    assert job.output_stem == "PAT-DIT-EKSTRAKSJON-OU"
+    # Report-level codes win over unit-level ones.
+    assert job.analysis_codes == ("EKSTRAKSJON-OU", "EKSTRAGENXRNA-OU")
 
 
 def test_validate_analysis_codes_round_trip() -> None:

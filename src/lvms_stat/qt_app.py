@@ -683,6 +683,27 @@ def build_dashboard(
                     failure=on_failure,
                 )
                 post("outcome", outcome)
+                # Make the file locations explicit - the user must be
+                # able to find the raw and processed CSVs.
+                try:
+                    from lvms_stat.settings_store import load_settings
+
+                    root = Path(load_settings().statistics_root)
+                    unit_root = root / unit_key
+                    post(
+                        "log",
+                        "Filer: rådata arkiveres i "
+                        f"{unit_root / 'raa'}",
+                    )
+                    post(
+                        "log",
+                        f"Filer: prosesserte CSV-er i "
+                        f"{unit_root / 'prosessert'}",
+                    )
+                    downloads = Path(load_settings().download_directory)
+                    post("log", f"Filer: Edge-nedlastinger i {downloads}")
+                except Exception:
+                    pass
                 if getattr(outcome, "downloaded", ()) or getattr(
                     outcome, "archived", ()
                 ):
