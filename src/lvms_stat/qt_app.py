@@ -1,13 +1,13 @@
 """Modern PyQt6 dashboard for the statistics pipeline.
 
 Design language (ui-ux-pro-max derived): dark charcoal shell with a
-Power-BI-inspired yellow accent (#F2C811), fixed left sidebar navigation,
-one status card per clinical unit on the dashboard page and a dedicated
-log page. All heavy work runs on a worker thread; the UI thread only
-paints.
+Power-BI-inspired yellow accent (#F2C811), fixed left sidebar navigation
+with three pages - Dashbord, Logg and Oppsett (in-app configuration).
+All heavy work runs on a worker thread; the UI thread only paints.
 
-The pure logic lives in :mod:`lvms_stat.dashboard_state` and
-:mod:`lvms_stat.fetch_orchestrator` - both fully unit tested without Qt.
+The pure logic lives in :mod:`lvms_stat.dashboard_state`,
+:mod:`lvms_stat.fetch_orchestrator` and :mod:`lvms_stat.settings_store`
+- all fully unit tested without Qt.
 """
 
 from __future__ import annotations
@@ -46,13 +46,21 @@ QLabel#Muted {{ color: {TEXT_MUTED}; }}
 QLabel#Brand {{ font-size: 15px; font-weight: 700; color: {TEXT_PRIMARY};
                 padding: 2px 0; }}
 QLabel#BrandDot {{ color: {ACCENT}; font-size: 15px; }}
+QLineEdit {{ background: {SIDEBAR_BG}; border: 1px solid {CARD_BORDER};
+    border-radius: 6px; padding: 7px 10px;
+    selection-background-color: {ACCENT}; selection-color: {ON_ACCENT}; }}
+QLineEdit:focus {{ border-color: {ACCENT}; }}
+QPlainTextEdit {{ background: {SIDEBAR_BG}; border: 1px solid {CARD_BORDER};
+    border-radius: 6px; padding: 6px 8px; font-size: 12.5px;
+    selection-background-color: {ACCENT}; selection-color: {ON_ACCENT}; }}
+QPlainTextEdit:focus {{ border-color: {ACCENT}; }}
 
 QPushButton#Nav {{ background: transparent; border: none; border-radius: 8px;
     padding: 11px 14px; text-align: left; font-size: 13.5px;
     color: {TEXT_MUTED}; }}
 QPushButton#Nav:hover {{ background: {CARD_BG}; color: {TEXT_PRIMARY}; }}
 QPushButton#Nav:checked {{ background: {CARD_BG}; color: {TEXT_PRIMARY};
-    font-weight: 600; }}
+    font-widget: 600; font-weight: 600; }}
 
 QPushButton#Primary {{ background: {ACCENT}; border: none; border-radius: 8px;
     padding: 11px 24px; font-size: 13.5px; font-weight: 650;
@@ -95,6 +103,11 @@ def load_pyqt6(
         raise PyQtUnavailable("PyQt6 is unavailable") from exc
 
 
+def _cursor_shape() -> Any:
+    QtCore, _ = load_pyqt6()
+    return QtCore.Qt.CursorShape
+
+
 def _nav_button(text: str) -> Any:
     """A sidebar navigation toggle (checkable, mutually exclusive group)."""
     _, QtWidgets = load_pyqt6()
@@ -105,31 +118,45 @@ def _nav_button(text: str) -> Any:
     return button
 
 
-def _cursor_shape() -> Any:
-    QtCore, _ = load_pyqt6()
-    return QtCore.Qt.CursorShape
-
-
 def build_dashboard(
     config_path: Path,
     *,
     fetch_runner: Callable[..., object],
     today_provider: Callable[[], date] = date.today,
 ) -> tuple[Any, Any]:
-    """Construct the dashboard window. Returns ``(window, app)``."""
+    """Construct the dashboard window. Returns ``(window, app)``.
+
+    ``config_path`` is still accepted for compatibility with tests and
+    the CLI, but the app now reads/writes its settings through
+    :mod:`lvms_stat.settings_store` under ``%LOCALAPPDATA%``.
+    """
     QtCore, QtWidgets = load_pyqt6()
     from lvms_stat.dashboard_state import (
         describe_failure,
         describe_outcome,
         load_unit_statuses,
     )
+    from lvms_stat.settings_store import (
+        Settings,
+        default_settings,
+        load_settings,
+        save_settings,
+        settings_path,
+        validate_settings,
+    )
+
+    # Once the user has saved setup through the GUI, those files are the
+    # single source of truth - everything downstream (dashboard state,
+    # fetching, post-processing) just sees a normal config path.
+    saved_settings = settings_path()
+    effective_config = saved_settings if saved_settings.exists() else Path(config_path)
 
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv[:1])
     app.setStyleSheet(STYLESHEET)
 
     window = QtWidgets.QWidget()
     window.setWindowTitle("LVMS Statistikk")
-    window.setMinimumSize(940, 620)
+    window.setMinimumSize(940, 640)
 
     shell = QtWidgets.QHBoxLayout(window)
     shell.setContentsMargins(0, 0, 0, 0)
@@ -168,13 +195,16 @@ def build_dashboard(
 
     nav_dash = _nav_button("  ▤  Dashbord")
     nav_log = _nav_button("  ≡  Logg")
+    nav_setup = _nav_button("  ⚙  Oppsett")
     nav_dash.setChecked(True)
-    for btn in (nav_dash, nav_log):
+    for btn in (nav_dash, nav_log, nav_setup):
         side.addWidget(btn)
 
     side.addStretch(1)
 
-    env_label = QtWidgets.QLabel("K:\\-arkiv oppdateres\netter hver kjøring.")
+    env_label = QtWidgets.QLabel(
+        "Innstillingene lagres i\n%LOCALAPPDATA%\\LVMS-STAT."
+    )
     env_label.setObjectName("Muted")
     env_label.setWordWrap(True)
     side.addWidget(env_label)
@@ -196,14 +226,19 @@ def build_dashboard(
     log_layout = QtWidgets.QVBoxLayout(log_page)
     log_layout.setContentsMargins(0, 0, 0, 0)
     log_layout.setSpacing(10)
-    pages.addWidget(dash_page)
-    pages.addWidget(log_page)
+    setup_page = QtWidgets.QWidget()
+    setup_layout = QtWidgets.QVBoxLayout(setup_page)
+    setup_layout.setContentsMargins(0, 0, 0, 0)
+    setup_layout.setSpacing(12)
+    for page in (dash_page, log_page, setup_page):
+        pages.addWidget(page)
 
     def switch_to(index: int) -> None:
         pages.setCurrentIndex(index)
 
     nav_dash.clicked.connect(lambda _=False: switch_to(0))
     nav_log.clicked.connect(lambda _=False: switch_to(1))
+    nav_setup.clicked.connect(lambda _=False: switch_to(2))
 
     # header (dashboard page)
     header = QtWidgets.QHBoxLayout()
@@ -289,9 +324,207 @@ def build_dashboard(
     log_box = QtWidgets.QPlainTextEdit()
     log_box.setObjectName("Log")
     log_box.setReadOnly(True)
-    log_box.setPlaceholderText("Ingen aktivitet ennå - henting og prosessering logges her.")
+    log_box.setPlaceholderText(
+        "Ingen aktivitet ennå - henting og prosessering logges her."
+    )
     log_layout.addWidget(log_box, stretch=1)
     clear_button.clicked.connect(log_box.clear)
+
+    # ------------------------------------------------------------------
+    # Oppsett page (all in-app configuration)
+    # ------------------------------------------------------------------
+    setup_head = QtWidgets.QHBoxLayout()
+    setup_title = QtWidgets.QLabel("Oppsett")
+    setup_title.setObjectName("Title")
+    setup_head.addWidget(setup_title)
+    setup_head.addStretch(1)
+    reload_button = QtWidgets.QPushButton("Last inn på nytt")
+    reload_button.setObjectName("Ghost")
+    reload_button.setCursor(_cursor_shape().PointingHandCursor)
+    setup_head.addWidget(reload_button)
+    setup_layout.addLayout(setup_head)
+
+    setup_hint = QtWidgets.QLabel(
+        "Alt oppsett gjøres her - ingen JSON-filer å redigere. "
+        "Feltene valideres mot det pipelinen faktisk krever når du lagrer."
+    )
+    setup_hint.setObjectName("Subtitle")
+    setup_hint.setWordWrap(True)
+    setup_layout.addWidget(setup_hint)
+
+    form_scroll = QtWidgets.QScrollArea()
+    form_scroll.setWidgetResizable(True)
+    form_scroll.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+    form_scroll.setStyleSheet("background: transparent;")
+    form_host = QtWidgets.QWidget()
+    form_host.setStyleSheet("background: transparent;")
+    form = QtWidgets.QVBoxLayout(form_host)
+    form.setContentsMargins(0, 4, 4, 0)
+    form.setSpacing(10)
+
+    def add_field(label: str, tooltip: str = "") -> Any:
+        row = QtWidgets.QVBoxLayout()
+        caption = QtWidgets.QLabel(label)
+        caption.setObjectName("Muted")
+        edit = QtWidgets.QLineEdit()
+        if tooltip:
+            edit.setToolTip(tooltip)
+        row.addWidget(caption)
+        row.addWidget(edit)
+        form.addLayout(row)
+        return edit
+
+    field_landing = add_field(
+        "LVMS-adresse",
+        "Full HTTPS-adressen til LVMS, f.eks. https://lvms.sykehus.no/clims",
+    )
+    field_root = add_field(
+        "Statistikk-rot (K:\\)",
+        "Mappen der manifest.sqlite og raa/arkiv/prosessert ligger.",
+    )
+
+    folders_card = QtWidgets.QFrame()
+    folders_card.setObjectName("Card")
+    folders_inner = QtWidgets.QVBoxLayout(folders_card)
+    folders_inner.setContentsMargins(16, 12, 16, 12)
+    folders_inner.setSpacing(8)
+    folders_title = QtWidgets.QLabel("Mapper på denne maskinen")
+    folders_title.setObjectName("CardTitle")
+    folders_inner.addWidget(folders_title)
+    prof_caption = QtWidgets.QLabel("Edge-profilmappe")
+    prof_caption.setObjectName("Muted")
+    field_profile = QtWidgets.QLineEdit()
+    dl_caption = QtWidgets.QLabel("Midlertidig nedlastingsmappe")
+    dl_caption.setObjectName("Muted")
+    field_downloads = QtWidgets.QLineEdit()
+    folders_inner.addWidget(prof_caption)
+    folders_inner.addWidget(field_profile)
+    folders_inner.addWidget(dl_caption)
+    folders_inner.addWidget(field_downloads)
+    form.addWidget(folders_card)
+
+    units_card = QtWidgets.QFrame()
+    units_card.setObjectName("Card")
+    units_inner = QtWidgets.QVBoxLayout(units_card)
+    units_inner.setContentsMargins(16, 12, 16, 12)
+    units_inner.setSpacing(8)
+    units_title = QtWidgets.QLabel("Enheter")
+    units_title.setObjectName("CardTitle")
+    units_inner.addWidget(units_title)
+    field_hemato_codes = QtWidgets.QPlainTextEdit()
+    field_solide_codes = QtWidgets.QPlainTextEdit()
+    for caption, editor in (
+        ("Hemato - analysekoder (én per linje)", field_hemato_codes),
+        ("Solide - analysekoder (én per linje)", field_solide_codes),
+    ):
+        label = QtWidgets.QLabel(caption)
+        label.setObjectName("Muted")
+        units_inner.addWidget(label)
+        units_inner.addWidget(editor)
+    units_note = QtWidgets.QLabel(
+        "Rapport-ID-er og profil følger med enhetene og skal normalt ikke endres."
+    )
+    units_note.setObjectName("Muted")
+    units_note.setWordWrap(True)
+    units_inner.addWidget(units_note)
+    form.addWidget(units_card)
+
+    save_bar = QtWidgets.QHBoxLayout()
+    save_status = QtWidgets.QLabel("")
+    save_status.setObjectName("Subtitle")
+    save_status.setWordWrap(True)
+    save_button = QtWidgets.QPushButton("Lagre oppsett")
+    save_button.setObjectName("Primary")
+    save_button.setCursor(_cursor_shape().PointingHandCursor)
+    save_bar.addWidget(save_status, stretch=1)
+    save_bar.addWidget(save_button)
+    form.addLayout(save_bar)
+    form.addStretch(1)
+
+    form_scroll.setWidget(form_host)
+    setup_layout.addWidget(form_scroll, stretch=1)
+
+    def fill_form(settings: Any) -> None:
+        field_landing.setText(settings.landing_url)
+        field_root.setText(settings.statistics_root)
+        field_profile.setText(settings.profile_directory)
+        field_downloads.setText(settings.download_directory)
+        hemato = settings.units.get("hemato", {})
+        solide = settings.units.get("solide", {})
+        field_hemato_codes.setPlainText(
+            "\n".join(hemato.get("analysis_codes", []))
+        )
+        field_solide_codes.setPlainText(
+            "\n".join(solide.get("analysis_codes", []))
+        )
+
+    def collect_form() -> Any:
+        settings = default_settings()
+
+        def codes_from(editor: Any, fallback: list[str]) -> list[str]:
+            lines = [
+                line.strip()
+                for line in editor.toPlainText().splitlines()
+                if line.strip()
+            ]
+            return lines or fallback
+
+        settings.units["hemato"]["analysis_codes"] = codes_from(
+            field_hemato_codes,
+            settings.units["hemato"]["analysis_codes"],
+        )
+        settings.units["solide"]["analysis_codes"] = codes_from(
+            field_solide_codes,
+            settings.units["solide"]["analysis_codes"],
+        )
+        settings.landing_url = field_landing.text().strip()
+        settings.statistics_root = field_root.text().strip()
+        settings.profile_directory = field_profile.text().strip()
+        settings.download_directory = field_downloads.text().strip()
+        return settings
+
+    def refresh_setup_status() -> None:
+        from lvms_stat.settings_store import settings_path
+
+        if settings_path().exists():
+            save_status.setText("Lagret oppsett i bruk.")
+        else:
+            save_status.setText(
+                "Ikke satt opp ennå - fyll ut og lagre for å ta i bruk appen."
+            )
+
+    def load_into_form() -> None:
+        from lvms_stat.settings_store import (
+            Settings as _Settings,
+            default_settings,
+            load_settings,
+        )
+
+        try:
+            settings: Any = load_settings()
+        except Exception:
+            settings = default_settings()
+        fill_form(settings)
+        refresh_setup_status()
+
+    reload_button.clicked.connect(load_into_form)
+
+    def on_save() -> None:
+        from lvms_stat.settings_store import SettingsError, save_settings
+
+        try:
+            path = save_settings(collect_form())
+        except Exception as exc:
+            message = str(exc) if str(exc).strip() else repr(exc)
+            save_status.setText(f"Kunne ikke lagre: {message}")
+            return
+        save_status.setText(f"Lagret ✓ ({path})")
+        show_status(f"Nytt oppsett lagret - klart til å hente.")
+        refresh_cards()
+
+    save_button.clicked.connect(on_save)
+
+    # -- events / state rendering -----------------------------------------
 
     events: queue.Queue[tuple[str, Any]] = queue.Queue()
 
@@ -304,15 +537,19 @@ def build_dashboard(
         if message.strip():
             log_box.appendPlainText(str(message))
 
-    # -- state rendering -------------------------------------------------
-
     def refresh_cards() -> None:
         try:
             statuses = load_unit_statuses(
-                config_path, today=today_provider()
+                effective_config, today=today_provider()
             )
-        except Exception as exc:
-            show_status(f"Klarte ikke lese oppsettet: {describe_failure(exc)}")
+        except Exception:
+            card_widgets.clear()
+            while cards_grid.count():
+                item = cards_grid.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    widget.deleteLater()
+            subtitle.setText("Appen er ikke satt opp - åpne «Oppsett» i menyen.")
             return
         while cards_grid.count():
             item = cards_grid.takeAt(0)
@@ -376,7 +613,7 @@ def build_dashboard(
 
             try:
                 outcome = fetch_runner(
-                    config_path,
+                    effective_config,
                     unit_key=unit_key,
                     output=log_stream(),
                     progress=on_progress,
@@ -388,7 +625,7 @@ def build_dashboard(
                 ):
                     from lvms_stat.scheduled import _process_after_fetch
 
-                    _process_after_fetch(config_path, unit_key, log_stream())
+                    _process_after_fetch(effective_config, unit_key, log_stream())
             except Exception as exc:
                 post("failed", exc)
 
@@ -443,6 +680,7 @@ def build_dashboard(
     timer.timeout.connect(poll_events)
     timer.start(120)
     refresh_cards()
+    load_into_form()
 
     window.show()
     return window, app

@@ -4,9 +4,13 @@ Alt er utviklet og validert hjemme mot en lokal kopi av dataene. Denne
 guiden tar deg fra «ny maskin» til «kjører automatisk hver natt» på
 jobb-PC-en med K:\ montert. Følg kapitlene i rekkefølge.
 
+> **Hele oppsettet gjøres i appen** — kapittel 2–4 kan erstattes av å
+> åpne `python -m lvms_stat app` → **⚙ Oppsett** → verifisere feltene →
+> **Lagre oppsett**. JSON-redigering er kun reserve hvis noe henger.
+
 > **Kort versjon** (hvis alt allerede er satt opp fra før):
 > ```cmd
-> python -m lvms_stat auto --config config.json
+> python -m lvms_stat auto --config "%LOCALAPPDATA%\LVMS-STAT\settings.json"
 > ```
 > og en Task Scheduler-jobb som kjører samme kommando hver natt.
 
@@ -30,64 +34,52 @@ uv pip install --system PyQt6
 
 ---
 
-## 2. Opprett konfig-filer (engang)
-
-Konfig-filene ligger **ved siden av repoet** i `config/`-mappen (eller
-rett i repo-roten — velg ett sted og behold det). Kopier eksemplene:
+## 2. Sett opp alt i appen (engang)
 
 ```cmd
 cd C:\Users\molpa\Documents\LVMS-STAT
-copy config.example.json config.json
-copy units.example.json units.json
+python -m lvms_stat app
 ```
 
-Åpne `config.json` og sett:
+Åpne **⚙ Oppsett** i sidemenyen. Alle felt er forhåndsfylt med kjente
+verdier — du trenger bare å kontrollere dem:
 
-- `landing_url` / `expected_origin` — LVMS-adressen dere bruker
-- `profile_directory` — en Edge-profilmappe jobb-PC-en har skriverett til
-  (f.eks. `C:\Users\<bruker>\LVMS-STAT\edge-profile`)
-- `download_directory` — midlertidig nedlastingsmappe (ikke på K:\)
+- **LVMS-adresse** — full HTTPS-adresse til LVMS (f.eks.
+  `https://lvms.sykehus.no/clims`)
+- **Statistikk-rot** — forhåndsfylt med
+  `K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Hemato\Statistikk`
+- **Edge-profilmappe / nedlastingsmappe** — forhåndsfylt under
+  `%LOCALAPPDATA%\LVMS-STAT\`
+- **Enheter** — hemato (70 analysekoder) og solide (1) ligger ferdig,
+  inkludert rapport-ID-er og profil; rediger kun hvis analysetilbudet
+  endrer seg
 
-**Ikke** endre `statistics_root` manuelt — den styres av miljøvariabelen
-i kapittel 3.
+Trykk **Lagre oppsett**. Appen validerer mot nøyaktig de samme reglene
+pipelinen bruker, og skriver to filer:
 
-`units.json` fra eksemplet er riktig som den er:
+```
+%LOCALAPPDATA%\LVMS-STAT\
+├── settings.json   (adresse, statistikk-rot, mapper)
+└── units.json      (enheter, rapporter, analysekoder)
+```
 
-- **hemato** → rapporter `PAT-DIT-ANTALL-OU`, `PAT-DIT-RESULTATER-OU`,
-  `PAT-DIT-EKSTRAKSJON-OU`, profile `hemato` (12/5-kolonne-layout)
-- **solide** → samme rapportnavn (`-OU`), men eksporten fra LVMS skal
-  lagres i `...\Statistikk\Solide\`-undermappen; profile `solide`
-  (13/5-kolonne-layout med `Starttid.svartid`)
+**Merk:** miljøvariabelen `LVMS_STATISTICS_ROOT` overstyrer fortsatt
+statistikkgrotten fra settings.json hvis den er satt (nyttig for test).
 
 ---
 
-## 3. Pek på K:\ med miljøvariabel
+## 3. Kopier oppslagsfilene (engang)
 
-Pipeline finner statistikk-området via `LVMS_STATISTICS_ROOT`:
+Pipeline trenger to lookup-filer:
 
 ```cmd
-setx LVMS_STATISTICS_ROOT "K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Hemato\Statistikk"
+copy "%USERPROFILE%\Downloads\Statistikk\Analyse_lookup.xlsx" "K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Hemato\Statistikk\Analyse_lookup.xlsx"
+copy "%USERPROFILE%\Downloads\Statistikk\Solide\Analyse_lookup.xlsx" "K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Hemato\Statistikk\Solide\Analyse_lookup.xlsx"
 ```
 
-(`setx` lagrer variabelen permanent — **åpne et NYTT cmd-vindu** etterpå
-så den trer i kraft. Sjekk med `echo %LVMS_STATISTICS_ROOT%`.)
-
-Denne mappen skal inneholde:
-
-```
-Statistikk\
-├── manifest.sqlite          (opprettes automatisk ved første kjøring)
-├── Analyse_lookup.xlsx      (kopieres dit av deg, kap. 4)
-├── hemato\
-│   ├── raa\                 (arkiv, opprettes automatisk)
-│   ├── merged\              (opprettes automatisk)
-│   └── prosessert\          (antall.csv + resultater.csv → PBIX leser her)
-└── solide\
-    ├── raa\  merged\  prosessert\   (samme struktur)
-    └── Analyse_lookup.xlsx  (solides egen lookup, kap. 4)
-```
-
----
+(Finn de riktige kilde-mappene hvis lookup-filene ligger et annet sted —
+pipeline leter i denne rekkefølgen: `K:\...\Statistikk\<enhet>\`,
+config-mappen, statistikk-roten, repo-roten, Downloads.)
 
 ## 4. Kopier oppslagsfilene (engang)
 
@@ -99,20 +91,23 @@ copy "%USERPROFILE%\Downloads\Statistikk\Solide\Analyse_lookup.xlsx" "K:\Sensiti
 ```
 
 (Finn de riktige kilde-mappene hvis lookup-filene ligger et annet sted —
-pipeline leter i denne rekkefølgen: `K:\...\Statistikk\Solide\` for
-solide, config-mappen, statistikk-roten, repo-roten, Downloads.)
+pipeline leter i denne rekkefølgen: `K:\...\Statistikk\<enhet>\` for
+enhets-egen lookup, config-mappen, statistikk-roten, repo-roten, Downloads.)
 
 ---
 
-## 5. Første kjøring — manuelt, med øynene åpne
+## 4. Første kjøring — manuelt, med øynene åpne
 
 Første kjøring har ingen historikk i manifestet, så den henter **ett
 vindu 01.01.2024 → i dag** per rapport. Dette tar noen minutter.
 
 ```cmd
 cd C:\Users\molpa\Documents\LVMS-STAT
-python -m lvms_stat auto --config config.json
+python -m lvms_stat auto --config "%LOCALAPPDATA%\LVMS-STAT\settings.json"
 ```
+
+Alternativt: trykk **Hent nå** per enhet i appens dashbord — det kjører
+nøyaktig samme flyt.
 
 Forventet oppførsel:
 
@@ -144,7 +139,7 @@ fortsetter der det slapp, rådata overskrives aldri.
 
 ---
 
-## 6. Sjekk Power BI
+## 5. Sjekk Power BI
 
 Åpne `Hemato_Statistikk.pbix` og `Solide_Statistikk.pbix` og trykk
 **Oppdater**. PBIX-filene peker allerede på `Prosessert\*.csv`-filene og
@@ -156,15 +151,14 @@ fra rapporten du pleier å levere?
 
 ---
 
-## 7. Daglig drift — Task Scheduler
+## 6. Daglig drift — Task Scheduler
 
 Lag `LVMS-STAT_AUTO.cmd` i repo-roten:
 
 ```cmd
 @echo off
-set LVMS_STATISTICS_ROOT=K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Hemato\Statistikk
 cd /d C:\Users\molpa\Documents\LVMS-STAT
-python -m lvms_stat auto --config config.json >> "%LOCALAPPDATA%\LVMS-STAT\auto-log.txt" 2>&1
+python -m lvms_stat auto --config "%LOCALAPPDATA%\LVMS-STAT\settings.json" >> "%LOCALAPPDATA%\LVMS-STAT\auto-log.txt" 2>&1
 ```
 
 Registrer en daglig jobb (kjør i et cmd-vindu):
@@ -183,35 +177,36 @@ schtasks /Create /TN "LVMS-STAT auto" /SC DAILY /ST 06:30 ^
 
 ---
 
-## 8. Appen (valgfritt, til daglig bruk)
+## 7. Appen (daglig bruk)
 
 ```cmd
-python -m lvms_stat app --config config.json
+python -m lvms_stat app
 ```
 
-Sidemeny til venstre, status per enhet, «Hent nå»-knapp og loggside.
-Samme pipeline, samme manifest — appen og den nattlige jobben kan brukes
-om hverandre.
+Sidemeny til venstre: **Dashbord** (status per enhet + «Hent nå»),
+**Logg** og **Oppsett** (alle innstillinger). Appen leser samme
+settings/units-filer som den nattlige jobben — de kan brukes om
+hverandre.
 
 ---
 
-## 9. Feilsøking
+## 8. Feilsøking
 
 | Symptom | Løsning |
 |---|---|
-| `Klarte ikke lese oppsettet` | `units.json`/`config.json` mangler ved siden av config-path — se kap. 2 |
+| `Klarte ikke lese oppsettet` | Åpne **⚙ Oppsett** i appen og lagre på nytt |
 | Henting stopper ved innlogging | Logg inn i LVMS manuelt i Edge én gang; profilen husker det |
-| `prosessering feilet: Analyse_lookup.xlsx ikke funnet` | Kap. 4 — sjekk at filen ligger der |
-| Rader mangler mot tabellen i kap. 5 | Sjekk at hele datovinduet ble hentet (`auto-log.txt`); kjør `auto` på nytt |
+| `Analyse_lookup.xlsx ikke funnet` | Kap. 3 — sjekk at filene ligger der |
+| Rader mangler mot tabellen i kap. 4 | Sjekk at hele datovinduet ble hentet (`auto-log.txt`); kjør `auto` på nytt |
 | PBIX viser gammelt | Sjekk at `prosessert\*.csv` har oppdatert tidsstempel; oppdater PBIX |
 | Alt annet | Rådata er alltid trygt arkivert under `raa\` — ingenting kan ødelegges ved å kjøre på nytt |
 
 ---
 
-## 10. Hva du IKKE skal gjøre
+## 9. Hva du IKKE skal gjøre
 
 - **Ikke** slett eller rediger filer under `raa\` — det er rådataene.
 - **Ikke** rediger `manifest.sqlite` for hånd.
-- **Ikke** endre rapport-ID-er i `units.json` uten å vite hva manifestet
-  har logget (ny rapport-ID = nytt datovindu fra 01.01.2024).
+- **Ikke** endre rapport-ID-er (i Oppsett-siden) uten å vite hva
+  manifestet har logget (ny rapport-ID = nytt datovindu fra 01.01.2024).
 - **Ikke** flytt PBIX-filene uten å oppdatere datakildene i dem.

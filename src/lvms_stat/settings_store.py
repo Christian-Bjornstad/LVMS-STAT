@@ -1,0 +1,221 @@
+"""App-managed settings so the whole setup happens inside the GUI.
+
+The dashboard's «Oppsett» page collects every knob (LVMS address,
+statistics root, folders, units) and stores two files under
+``%LOCALAPPDATA%/LVMS-STAT``:
+
+- ``settings.json``  - browser/statistics configuration
+- ``units.json``     - clinical units (hemato/solide) with profiles
+
+Both filenames are exactly what the rest of the pipeline already reads
+(``load_statistics_settings`` + ``load_units`` resolve siblings of the
+config path), so saving here makes the whole pipeline work with no
+manual JSON editing. Sensible defaults (including all known analysis
+codes) are baked in below so a fresh machine only needs a review.
+"""
+
+from __future__ import annotations
+
+import copy
+import json
+import os
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from lvms_stat.config import ConfigError, validate_app_config
+from lvms_stat.units import UnitsConfigError, validate_units
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
+
+SETTINGS_DIRNAME = "LVMS-STAT"
+
+DEFAULT_STATISTICS_ROOT = (
+    "K:/Sensitivt/Klinikk/Sensitiv_mappe_MolPat/Hemato/Statistikk"
+)
+
+
+class SettingsError(ValueError):
+    """Settings could not be loaded, validated, or saved."""
+
+
+# Known-good unit definitions (mirrors units.example.json). The GUI lets
+# the user edit every part of this - it is a starting point, not a lock.
+DEFAULT_UNITS: dict[str, Any] = {
+    "hemato": {
+        "label": "Hemato",
+        "profile": "hemato",
+        "analysis_codes": [
+            "EKSTRAKSJON-H-OU", "AVVENTFLOW-OU", "OPPBEVARING-OU",
+            "HEMAVISION-OU", "PML-RARA-OU", "CBFB-MYH11-OU",
+            "RUNX1-RUNX1T1-OU", "BCR-ABL1-OU", "AFF1-KMT2A-OU",
+            "MLLT3-KMT2A-OU", "FLT3-ITD-OU", "FLT3-TKD-OU", "NPM1-FRAG-OU",
+            "PDGFRA-OU", "PDGFRB-OU", "FIP1L1-PDGFRA-RNA-OU",
+            "FIP1L1-PDGFRA-DNA-OU", "WT1-OU", "PRAME-OU", "NPM1A-OU",
+            "FUSJON-DPCR-OU", "NPM1-OU", "BCR-ABL1-MAJOR-Q-OU",
+            "BCR-ABL1-MINOR-Q-OU", "CBFB-MYH11A-Q-OU", "CBFB-MYH11D-Q-OU",
+            "CBFB-MYH11E-Q-OU", "DEK-NUP214-OU", "ETV6-RUNX1-Q-OU",
+            "AFF1-KMT2A9-Q-OU", "AFF1-KMT2A10-Q-OU", "MLLT3-KMT2A-E8-Q-OU",
+            "MLLT3-KMT2A-E9-Q-OU", "PML-RARA-BCR1-Q-OU",
+            "PML-RARA-BCR2-Q-OU", "PML-RARA-BCR3-Q-OU",
+            "RUNX1-RUNX1T-Q-OU", "TCF3-PBX1-Q-OU", "KML-UTREDNING-OU",
+            "KML-BCRABL1-MAJOR-OU", "KML-BCRABL1-MINOR-OU",
+            "KML-BCRABL1-MIKRO-OU", "JAK2-V617F-OU", "JAK2-EX12-OU",
+            "CALR-OU", "MPL-W515L-OU", "MPL-W515K-OU", "KIT-D816V-OU",
+            "IGH-VDJ-OU", "IGH-DJ-OU", "IGK-OU", "TRB-OU", "TRG-OU",
+            "TRD-OU", "TRDA-OU", "IKZF1-OU", "STILTAL-OU",
+            "DNA-LADDER-OU", "MYD88-L265P-OU", "ASO-MRD-OU",
+            "ASO-MRD-29-OU", "ASO-MRD-50-OU", "ASO-MRD-71-OU",
+            "ASO-MRD-B-ETA-OU", "ASO-MRD-T-ETA-OU", "HTS-MYELOID-OU",
+            "HTS-MYELOID-TP53-OU", "HTS-KIMKTR-OU", "HTS-PAN-HEM-OU",
+            "HTS-IGH-OU",
+        ],
+        "reports": [
+            {"job_key": "ordered", "report_id": "PAT-DIT-ANTALL-OU"},
+            {"job_key": "answered", "report_id": "PAT-DIT-RESULTATER-OU"},
+            {"job_key": "extraction", "report_id": "PAT-DIT-EKSTRAKSJON-OU"},
+        ],
+    },
+    "solide": {
+        "label": "Solide",
+        "profile": "solide",
+        # NB: solide reports keep the same LVMS names as hemato (-OU);
+        # the export is filtered on OU-SOLIDE and stored under Solide/.
+        "analysis_codes": ["EKSTRAKSJON-SO-OU"],
+        "reports": [
+            {"job_key": "ordered", "report_id": "PAT-DIT-ANTALL-OU"},
+            {"job_key": "answered", "report_id": "PAT-DIT-RESULTATER-OU"},
+            {"job_key": "extraction", "report_id": "PAT-DIT-EKSTRAKSJON-OU"},
+        ],
+    },
+}
+
+
+@dataclass
+class Settings:
+    """Everything the «Oppsett» page edits. Mutable on purpose: the GUI
+    form fills and tweaks one instance before saving."""
+
+    landing_url: str = ""
+    statistics_root: str = ""
+    profile_directory: str = ""
+    download_directory: str = ""
+    units: dict[str, Any] = field(default_factory=dict)
+
+
+def settings_root() -> Path:
+    base = os.environ.get("LOCALAPPDATA", "")
+    if not base.strip():
+        raise SettingsError(
+            "lokaldatamappen (LOCALAPPDATA) er utilgjengelig"
+        )
+    return Path(base) / SETTINGS_DIRNAME
+
+
+def settings_path() -> Path:
+    return settings_root() / "settings.json"
+
+
+def default_settings() -> Settings:
+    """First-run values - everything is editable in the GUI."""
+    local = settings_root()
+    environment_root = os.environ.get("LVMS_STATISTICS_ROOT", "").strip()
+    return Settings(
+        landing_url="",
+        statistics_root=environment_root or DEFAULT_STATISTICS_ROOT,
+        profile_directory=str(local / "edge-profile"),
+        download_directory=str(local / "downloads"),
+        units=copy.deepcopy(DEFAULT_UNITS),
+    )
+
+
+def _read_json(path: Path) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise SettingsError(f"{path.name} mangler") from exc
+    except OSError as exc:
+        raise SettingsError(f"{path.name} kunne ikke leses") from exc
+    except json.JSONDecodeError as exc:
+        raise SettingsError(f"{path.name} er ikke gyldig JSON") from exc
+
+
+def load_settings() -> Settings:
+    """Load the saved settings; raises :class:`SettingsError` if absent."""
+    raw = _read_json(settings_path())
+    if not isinstance(raw, dict):
+        raise SettingsError("settings.json må inneholde et objekt")
+    units_raw = _read_json(settings_root() / "units.json")
+    if not isinstance(units_raw, dict) or not isinstance(
+        units_raw.get("units"), dict
+    ):
+        raise SettingsError("units.json må inneholde et units-objekt")
+    return Settings(
+        landing_url=str(raw.get("landing_url", "")),
+        statistics_root=str(raw.get("statistics_root", "")),
+        profile_directory=str(raw.get("profile_directory", "")),
+        download_directory=str(raw.get("download_directory", "")),
+        units=copy.deepcopy(units_raw["units"]),
+    )
+
+
+def _atomic_write(path: Path, text: str) -> None:
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(text, encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def validate_settings(settings: Settings) -> None:
+    """Run the exact validators the pipeline will apply later."""
+    if not settings.landing_url.strip():
+        raise SettingsError(
+            "LVMS-adressen må fylles inn (f.eks. https://lvms.sykehus.no/clims)"
+        )
+    if not settings.statistics_root.strip():
+        raise SettingsError("Statistikk-roten må fylles inn")
+    app_raw = {
+        "landing_url": settings.landing_url.strip(),
+        "profile_directory": settings.profile_directory.strip(),
+        "download_directory": settings.download_directory.strip(),
+    }
+    try:
+        validate_app_config(app_raw, repository_root=REPOSITORY_ROOT)
+    except ConfigError as exc:
+        raise SettingsError(str(exc)) from exc
+    try:
+        validate_units({"units": settings.units})
+    except UnitsConfigError as exc:
+        raise SettingsError(f"Enheter er ugyldige: {exc}") from exc
+
+
+def save_settings(settings: Settings) -> Path:
+    """Validate and persist settings + units. Returns settings.json path."""
+    validate_settings(settings)
+    root = settings_root()
+    root.mkdir(parents=True, exist_ok=True)
+    settings_payload = {
+        "landing_url": settings.landing_url.strip(),
+        "expected_origin": _origin_of(settings.landing_url.strip()),
+        "statistics_root": settings.statistics_root.strip(),
+        "profile_directory": str(
+            Path(settings.profile_directory.strip()).expanduser()
+        ),
+        "download_directory": str(
+            Path(settings.download_directory.strip()).expanduser()
+        ),
+    }
+    _atomic_write(root / "settings.json", json.dumps(settings_payload, indent=2))
+    _atomic_write(
+        root / "units.json",
+        json.dumps({"units": settings.units}, indent=2, ensure_ascii=False),
+    )
+    return root / "settings.json"
+
+
+def _origin_of(landing_url: str) -> str:
+    from urllib.parse import urlsplit
+
+    parsed = urlsplit(landing_url)
+    host = parsed.hostname or ""
+    port = parsed.port
+    return f"https://{host}" if port is None else f"https://{host}:{port}"
