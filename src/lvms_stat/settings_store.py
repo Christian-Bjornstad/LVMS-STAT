@@ -121,7 +121,7 @@ def default_settings() -> Settings:
     local = settings_root()
     environment_root = os.environ.get("LVMS_STATISTICS_ROOT", "").strip()
     return Settings(
-        landing_url="",
+        landing_url="https://lvms.sykehus.no/clims",
         statistics_root=environment_root or DEFAULT_STATISTICS_ROOT,
         profile_directory=str(local / "edge-profile"),
         download_directory=str(local / "downloads"),
@@ -141,21 +141,47 @@ def _read_json(path: Path) -> Any:
 
 
 def load_settings() -> Settings:
-    """Load the saved settings; raises :class:`SettingsError` if absent."""
-    raw = _read_json(settings_path())
+    """Load saved settings, healing any missing keys with defaults.
+
+    A partially written ``settings.json`` (e.g. only ``landing_url``
+    from an early manual test) must never block the GUI: every absent
+    key falls back to :func:`default_settings`, and a missing or
+    unreadable ``units.json`` falls back to the built-in unit set.
+    """
+    base = default_settings()
+    try:
+        raw = _read_json(settings_path())
+    except SettingsError:
+        return base
     if not isinstance(raw, dict):
-        raise SettingsError("settings.json må inneholde et objekt")
-    units_raw = _read_json(settings_root() / "units.json")
-    if not isinstance(units_raw, dict) or not isinstance(
-        units_raw.get("units"), dict
-    ):
-        raise SettingsError("units.json må inneholde et units-objekt")
+        return base
+
+    def merged(value: Any, fallback: str) -> str:
+        text = value.strip() if isinstance(value, str) else ""
+        return text or fallback
+
+    units = copy.deepcopy(base.units)
+    try:
+        units_raw = _read_json(settings_root() / "units.json")
+        if (
+            isinstance(units_raw, dict)
+            and isinstance(units_raw.get("units"), dict)
+            and units_raw["units"]
+        ):
+            units = copy.deepcopy(units_raw["units"])
+    except SettingsError:
+        pass
+
     return Settings(
-        landing_url=str(raw.get("landing_url", "")),
-        statistics_root=str(raw.get("statistics_root", "")),
-        profile_directory=str(raw.get("profile_directory", "")),
-        download_directory=str(raw.get("download_directory", "")),
-        units=copy.deepcopy(units_raw["units"]),
+        landing_url=merged(raw.get("landing_url"), base.landing_url),
+        statistics_root=merged(raw.get("statistics_root"), base.statistics_root),
+        profile_directory=merged(
+            raw.get("profile_directory"), base.profile_directory
+        ),
+        download_directory=merged(
+            raw.get("download_directory"), base.download_directory
+        ),
+        units=units,
     )
 
 

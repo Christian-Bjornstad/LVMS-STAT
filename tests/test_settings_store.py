@@ -49,6 +49,7 @@ def test_save_then_load_roundtrip(local_home: Path) -> None:
 
 def test_validate_rejects_missing_landing_url(local_home: Path) -> None:
     settings = default_settings()
+    settings.landing_url = ""
     with pytest.raises(SettingsError):
         validate_settings(settings)
 
@@ -87,3 +88,28 @@ def test_environment_root_used_as_default(
     monkeypatch.setenv("LVMS_STATISTICS_ROOT", "D:/Annet/Statistikk")
     settings = default_settings()
     assert settings.statistics_root == "D:/Annet/Statistikk"
+
+
+def test_load_heals_partial_settings_file(local_home: Path) -> None:
+    """The exact failure the user hit: a settings.json with only a few
+    keys must load with defaults filled in, not crash the GUI."""
+    import json
+
+    root = settings_root()
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "settings.json").write_text(
+        json.dumps({"landing_url": "https://lvms.sykehus.no/clims"}),
+        encoding="utf-8",
+    )
+    # no units.json at all
+    loaded = load_settings()
+    assert loaded.landing_url == "https://lvms.sykehus.no/clims"
+    assert loaded.statistics_root  # healed from default
+    assert loaded.profile_directory  # healed from default
+    assert set(loaded.units) == {"hemato", "solide"}  # healed from default
+
+
+def test_load_returns_defaults_when_settings_absent(local_home: Path) -> None:
+    loaded = load_settings()
+    assert loaded.landing_url == "https://lvms.sykehus.no/clims"
+    assert loaded.statistics_root.endswith("Statistikk")

@@ -436,13 +436,14 @@ def build_dashboard(
     save_button = QtWidgets.QPushButton("Lagre oppsett")
     save_button.setObjectName("Primary")
     save_button.setCursor(_cursor_shape().PointingHandCursor)
+    # Save bar is pinned OUTSIDE the scroll area so the result of the
+    # click (success or error) is always visible without scrolling.
     save_bar.addWidget(save_status, stretch=1)
     save_bar.addWidget(save_button)
-    form.addLayout(save_bar)
-    form.addStretch(1)
 
     form_scroll.setWidget(form_host)
     setup_layout.addWidget(form_scroll, stretch=1)
+    setup_layout.addLayout(save_bar)
 
     def fill_form(settings: Any) -> None:
         field_landing.setText(settings.landing_url)
@@ -516,10 +517,13 @@ def build_dashboard(
             path = save_settings(collect_form())
         except Exception as exc:
             message = str(exc) if str(exc).strip() else repr(exc)
-            save_status.setText(f"Kunne ikke lagre: {message}")
+            save_status.setText(f"❌ Kunne ikke lagre: {message}")
+            save_status.setStyleSheet("color: #ff9d8f;")
+            show_status(f"Kunne ikke lagre oppsettet: {message}")
             return
+        save_status.setStyleSheet("")  # back to default subtitle colour
         save_status.setText(f"Lagret ✓ ({path})")
-        show_status(f"Nytt oppsett lagret - klart til å hente.")
+        show_status("Nytt oppsett lagret - klart til å hente.")
         refresh_cards()
 
     save_button.clicked.connect(on_save)
