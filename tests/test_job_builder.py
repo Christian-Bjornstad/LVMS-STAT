@@ -41,7 +41,7 @@ def test_build_report_job_matches_plan() -> None:
         template=TEMPLATE,
     )
     assert job.report_id == "PAT-DIT-ANTALL-OU"
-    assert job.output_stem == "PAT-DIT-ANTALL-OU"
+    assert job.output_stem == "hemato-PAT-DIT-ANTALL-OU"
     assert job.interval.created_from == date(2024, 1, 1)
     assert job.interval.created_to == date(2026, 8, 22)
     assert job.analysis_codes == ("CALR-OU", "JAK2-V617F-OU")
@@ -128,9 +128,20 @@ def test_extraction_report_runs_under_resultater_id() -> None:
     # LVMS must run the RESULTATER report...
     assert job.report_id == "PAT-DIT-RESULTATER-OU"
     # ...but the export is saved as the extraction id.
-    assert job.output_stem == "PAT-DIT-EKSTRAKSJON-OU"
+    assert job.output_stem == "solide-PAT-DIT-EKSTRAKSJON-OU"
     # Report-level codes win over unit-level ones.
     assert job.analysis_codes == ("EKSTRAKSJON-OU", "EKSTRAGENXRNA-OU")
+
+
+def test_output_stem_is_unit_scoped() -> None:
+    """Two units must never produce the same staging filename in the
+    shared raadata folder; the archive step restores the spec name."""
+    job = build_report_job(
+        make_fetch(),  # type: ignore[arg-type]
+        analysis_codes=("CALR-OU",),
+        template=TEMPLATE,
+    )
+    assert job.output_stem == f"hemato-{job.report_id}"
 
 
 def test_validate_analysis_codes_round_trip() -> None:

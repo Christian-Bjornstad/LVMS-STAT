@@ -72,7 +72,13 @@ def build_report_job(
         report_id=fetch.report.fetch_report_id,
         analysis_codes=codes,
         interval=ReportInterval(fetch.created_from, fetch.created_to),
-        output_stem=fetch.report.report_id,
+        # Unit-scoped staging name: the frozen batch runner saves every
+        # export into the shared raadata folder, so two units would
+        # otherwise produce identical filenames and each could consume
+        # the other's file. The archive step strips the prefix again
+        # (archive.split_unit_prefix) so the canonical spec filename is
+        # what lands in <root>/<unit>/raa/ and the manifest.
+        output_stem=f"{fetch.unit.key}-{fetch.report.report_id}",
     )
 
 
