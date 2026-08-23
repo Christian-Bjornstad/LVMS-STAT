@@ -103,7 +103,7 @@ def test_plan_with_history_builds_generated_jobs_file(tmp_path: Path) -> None:
     assert job["job_key"] == "batch-0"
     assert job["created_from"] == "17.08.2026"
     assert job["created_to"] == "22.08.2026"
-    assert job["output_stem"] == "PAT-DIT-ANTALL-OU"
+    assert job["output_stem"] == "hemato-PAT-DIT-ANTALL-OU"
 
 
 def test_first_run_plans_from_backfill_start(tmp_path: Path) -> None:
