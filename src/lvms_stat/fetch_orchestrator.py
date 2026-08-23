@@ -38,6 +38,15 @@ class FetchOrchestrationError(ValueError):
     """The incremental fetch could not be planned or completed."""
 
 
+def staging_directory() -> Path:
+    """Where the frozen batch runner stages finished CSV exports.
+
+    A seam so tests can point the archiver at a temporary folder; the
+    default is the repository's shared ``raadata`` folder.
+    """
+    return Path(__file__).resolve().parents[2] / "rådata"
+
+
 @dataclass(frozen=True)
 class FetchOutcome:
     """What one incremental fetch actually did."""
@@ -218,10 +227,11 @@ def _archive_results(
     up_to_date: tuple[str, ...],
 ) -> FetchOutcome:
     store = ManifestStore(statistics_root / "manifest.sqlite")
-    download_directory = Path(__file__).resolve().parents[2] / "rådata"
+    download_directory = staging_directory()
     stem_to_job_key = {job.output_stem: job.job_key for job in jobs}
     downloaded: list[str] = []
     archived: list[str] = []
+    archive_failures: list[str] = []
     for item in sorted(download_directory.glob("*.csv")):
         match = item.name.split("__", 1)
         stem = match[0] if match else ""
@@ -237,16 +247,27 @@ def _archive_results(
                 unit=unit.key,
                 job_key=stem_to_job_key[stem],
             )
-        except ArchiveError as exc:
-            stream.write(f"Archiving failed for {filename}: {exc}\n")
-            raise FetchOrchestrationError(str(exc)) from exc
+        except Exception as exc:
+            # Loud failure: the file stays in the staging folder and the
+            # user is told exactly where it is and what happens next.
+            archive_failures.append(filename)
+            stream.write(f"ARKIVERINGSFEIL for {filename}: {exc}\n")
+            continue
         downloaded.append(filename)
         archived.append(str(outcome.archived_path))
         stream.write(f"Arkivert: {filename} -> {outcome.archived_path}\n")
-    if not downloaded:
+    if not downloaded and not archive_failures:
         stream.write(
             "Ingen nye CSV-filer ble funnet i nedlastingsmappen.\n"
             f"Søkte i: {download_directory}\n"
+        )
+    if archive_failures:
+        raise FetchOrchestrationError(
+            f"{len(archive_failures)} CSV-fil(er) ble hentet men kunne "
+            "IKKE arkiveres. Filene er IKKE slettet og ligger fortsatt i "
+            f"{download_directory}: {', '.join(archive_failures)}. Løs "
+            "feilen (f.eks. mangler nettverksdisken?) og kjør hentingen "
+            "på nytt - filene arkiveres da automatisk."
         )
     return FetchOutcome(
         unit_key=unit.key,
