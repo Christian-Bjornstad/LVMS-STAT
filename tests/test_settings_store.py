@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from lvms_stat.settings_store import (
+    DEFAULT_EXTRACTION_CODES,
     DEFAULT_UNITS,
     Settings,
     SettingsError,
@@ -177,6 +178,48 @@ def test_degenerate_code_lists_self_heal(local_home: Path) -> None:
         "answered",
         "extraction",
     ]
+
+
+def test_legacy_report_routing_self_heals(local_home: Path) -> None:
+    """A complete old report set must still migrate extraction routing.
+
+    Older installations stored only ``report_id``.  That made the third
+    job run the non-existent EKSTRAKSJON report instead of running
+    RESULTATER with the extraction-code override.
+    """
+    import copy
+    import json
+
+    root = settings_root()
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "settings.json").write_text(
+        json.dumps({"landing_url": "https://lvms.sykehus.no/clims"}),
+        encoding="utf-8",
+    )
+    legacy_units = copy.deepcopy(DEFAULT_UNITS)
+    for unit in legacy_units.values():
+        unit["reports"] = [
+            {"job_key": "ordered", "report_id": "PAT-DIT-ANTALL-OU"},
+            {"job_key": "answered", "report_id": "PAT-DIT-RESULTATER-OU"},
+            {
+                "job_key": "extraction",
+                "report_id": "PAT-DIT-EKSTRAKSJON-OU",
+            },
+        ]
+    (root / "units.json").write_text(
+        json.dumps({"units": legacy_units}), encoding="utf-8"
+    )
+
+    loaded = load_settings()
+
+    for unit_key in ("hemato", "solide"):
+        reports = {
+            item["job_key"]: item for item in loaded.units[unit_key]["reports"]
+        }
+        extraction = reports["extraction"]
+        assert extraction["fetch_report_id"] == "PAT-DIT-RESULTATER-OU"
+        assert extraction["report_id"] == "PAT-DIT-EKSTRAKSJON-OU"
+        assert extraction["analysis_codes"] == list(DEFAULT_EXTRACTION_CODES)
 
 
 def test_partial_units_json_keeps_user_units_but_heals_missing_ones(

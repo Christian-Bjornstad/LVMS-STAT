@@ -206,19 +206,30 @@ def _codes_look_degenerate(saved: Any, fallback: Any) -> bool:
 
 
 def _reports_look_degenerate(saved: Any, fallback: Any) -> bool:
-    """True when the saved report set is missing one of the known-good
-    report kinds (ordered/answered/extraction) or is absent entirely."""
+    """True when a known report set is missing or uses legacy routing.
+
+    Merely having all three job keys is not enough.  Old installations
+    stored no ``fetch_report_id`` or report-level extraction codes, which
+    made extraction run under PAT-DIT-EKSTRAKSJON-OU.  Known units must use
+    the complete built-in contract so upgrades repair that configuration.
+    """
     if not isinstance(saved, list) or not saved:
         return True
     if isinstance(fallback, list) and fallback:
-        saved_keys = {
-            item.get("job_key") for item in saved if isinstance(item, dict)
+        saved_by_key = {
+            item.get("job_key"): item
+            for item in saved
+            if isinstance(item, dict) and item.get("job_key")
         }
-        return any(
-            item.get("job_key") not in saved_keys
-            for item in fallback
-            if isinstance(item, dict)
-        )
+        for expected in fallback:
+            if not isinstance(expected, dict):
+                continue
+            actual = saved_by_key.get(expected.get("job_key"))
+            if not isinstance(actual, dict):
+                return True
+            for field in ("fetch_report_id", "report_id", "analysis_codes"):
+                if field in expected and actual.get(field) != expected[field]:
+                    return True
     return False
 
 
