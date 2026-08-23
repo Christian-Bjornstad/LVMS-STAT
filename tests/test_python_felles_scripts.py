@@ -25,9 +25,10 @@ class PythonFellesScriptTests(unittest.TestCase):
                 pip_main=lambda args: calls.append(list(args)) or 0,
                 importer=lambda name: imported.append(name) or object(),
             )
+            installed_from_project = Path(calls[0][-1]).samefile(project)
 
         self.assertEqual(result, 0)
-        self.assertEqual(calls[0][-1], str(project))
+        self.assertTrue(installed_from_project)
         self.assertEqual(imported, ["PyQt6", "websocket", "lvms_stat"])
 
     def test_start_script_needs_no_local_json_files_and_dispatches_app(self) -> None:
