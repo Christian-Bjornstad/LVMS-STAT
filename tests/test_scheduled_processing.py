@@ -86,7 +86,9 @@ def test_processing_failure_does_not_fail_run(tmp_path: Path) -> None:
     assert "prosessering feilet" in stream.getvalue()
 
 
-def test_no_processing_when_up_to_date(tmp_path: Path) -> None:
+def test_processing_rebuilds_outputs_when_reports_are_up_to_date(
+    tmp_path: Path,
+) -> None:
     config = make_config(tmp_path)
     processed: list[str] = []
 
@@ -101,4 +103,4 @@ def test_no_processing_when_up_to_date(tmp_path: Path) -> None:
     ):
         code = run_scheduled(config, output=io.StringIO(), fetcher=fake_fetch)
     assert code == 0
-    assert processed == []
+    assert len(processed) == 1

@@ -118,6 +118,21 @@ def path_status(path_text: str) -> str:
     return "⚠ mappen finnes ikke ennå - opprettes automatisk ved bruk"
 
 
+def file_location_messages(
+    statistics_root: str | Path,
+    unit_key: str,
+    staging_directory: str | Path,
+) -> tuple[str, str, str]:
+    """User-visible locations for every stage of one unit's CSV flow."""
+    unit_root = Path(statistics_root) / unit_key
+    return (
+        f"Filer: ferdige nedlastinger mellomlagres i {Path(staging_directory)}",
+        f"Filer: rå-CSV-er arkiveres under {unit_root / 'raa'}",
+        "Filer: prosesserte filer for Power BI i "
+        f"{unit_root / 'prosessert'} (antall.csv, resultater.csv)",
+    )
+
+
 def default_codes_text(unit_key: str) -> str:
     """The built-in code list for a unit, one analysis code per line."""
     from lvms_stat.settings_store import DEFAULT_UNITS
@@ -753,6 +768,19 @@ def build_dashboard(
         progress.setRange(0, 0)  # busy indicator
         progress.setVisible(True)
         log_box.appendPlainText(f"— starter henting for «{unit_key}» —")
+        try:
+            from lvms_stat.fetch_orchestrator import staging_directory
+            from lvms_stat.settings_store import load_settings
+
+            settings_now = load_settings()
+            for message in file_location_messages(
+                settings_now.statistics_root,
+                unit_key,
+                staging_directory(),
+            ):
+                log_box.appendPlainText(message)
+        except Exception:
+            pass
         pages.setCurrentIndex(0)
         show_status("Kjører - åpner LVMS …")
 
@@ -775,34 +803,9 @@ def build_dashboard(
                     failure=on_failure,
                 )
                 post("outcome", outcome)
-                # Make the file locations explicit - the user must be
-                # able to find the raw and processed CSVs.
-                try:
-                    from lvms_stat.settings_store import load_settings
+                from lvms_stat.scheduled import _process_after_fetch
 
-                    settings_now = load_settings()
-                    unit_root = (
-                        Path(settings_now.statistics_root) / unit_key
-                    )
-                    post(
-                        "log",
-                        "Filer: rå-CSV-er arkiveres under "
-                        f"{unit_root / 'raa'}",
-                    )
-                    post(
-                        "log",
-                        "Filer: prosesserte filer for Power BI i "
-                        f"{unit_root / 'prosessert'} (antall.csv, "
-                        "resultater.csv)",
-                    )
-                except Exception:
-                    pass
-                if getattr(outcome, "downloaded", ()) or getattr(
-                    outcome, "archived", ()
-                ):
-                    from lvms_stat.scheduled import _process_after_fetch
-
-                    _process_after_fetch(effective_config, unit_key, log_stream())
+                _process_after_fetch(effective_config, unit_key, log_stream())
             except Exception as exc:
                 post("failed", exc)
 

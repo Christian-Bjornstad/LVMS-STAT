@@ -161,9 +161,7 @@ def run_scheduled(
             continue
         if stream is not None:
             stream.write(f"[{unit_key}] {describe_outcome(outcome)}\n")
-        if not skip_processing and (
-            getattr(outcome, "downloaded", ()) or getattr(outcome, "archived", ())
-        ):
+        if not skip_processing:
             try:
                 _process_after_fetch(config_path, unit_key, stream)
             except Exception as exc:
