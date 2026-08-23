@@ -113,3 +113,105 @@ def test_load_returns_defaults_when_settings_absent(local_home: Path) -> None:
     loaded = load_settings()
     assert loaded.landing_url == "https://lvms.sykehus.no/clims"
     assert loaded.statistics_root.endswith("Statistikk")
+
+
+def test_degenerate_code_lists_self_heal(local_home: Path) -> None:
+    """The exact failure from the work computer: an old units.json whose
+    code lists collapsed to a single entry must load with the full
+    built-in lists restored, not with one lonely analysis code."""
+    import json
+
+    root = settings_root()
+    root.mkdir(parents=True, exist_ok=True)
+    # A valid settings.json so load_settings proceeds to read units.json
+    # instead of returning pure defaults.
+    (root / "settings.json").write_text(
+        json.dumps({"landing_url": "https://lvms.sykehus.no/clims"}),
+        encoding="utf-8",
+    )
+    (root / "units.json").write_text(
+        json.dumps(
+            {
+                "units": {
+                    "hemato": {
+                        "label": "Hemato",
+                        "profile": "hemato",
+                        "analysis_codes": ["CALR-OU"],
+                        "reports": [
+                            {"job_key": "ordered", "report_id": "PAT-DIT-ANTALL-OU"}
+                        ],
+                    },
+                    "solide": {
+                        "label": "Solide",
+                        "profile": "solide",
+                        "analysis_codes": ["EKSTRAKSJON-SO-OU"],
+                        "reports": [
+                            {
+                                "job_key": "extraction",
+                                "report_id": "PAT-DIT-EKSTRAKSJON-OU",
+                            }
+                        ],
+                    },
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    loaded = load_settings()
+
+    hemato = loaded.units["hemato"]
+    solide = loaded.units["solide"]
+    # Restored to the full built-in lists, not the degenerate singletons:
+    assert len(hemato["analysis_codes"]) == len(
+        DEFAULT_UNITS["hemato"]["analysis_codes"]
+    )
+    assert len(solide["analysis_codes"]) == len(
+        DEFAULT_UNITS["solide"]["analysis_codes"]
+    )
+    assert hemato["analysis_codes"][0] != "CALR-OU"
+    assert "BRCA1-OU" in solide["analysis_codes"]
+    # Reports are also healed back to the known-good triple.
+    assert [r["job_key"] for r in hemato["reports"]] == [
+        "ordered",
+        "answered",
+        "extraction",
+    ]
+
+
+def test_partial_units_json_keeps_user_units_but_heals_missing_ones(
+    local_home: Path,
+) -> None:
+    """A units.json that only defines hemato gets solide healed in from
+    defaults instead of loading with a missing unit."""
+    import json
+
+    root = settings_root()
+    root.mkdir(parents=True, exist_ok=True)
+    # Same: settings.json must exist for units.json to be considered.
+    (root / "settings.json").write_text(
+        json.dumps({"landing_url": "https://lvms.sykehus.no/clims"}),
+        encoding="utf-8",
+    )
+    (root / "units.json").write_text(
+        json.dumps(
+            {
+                "units": {
+                    "hemato": {
+                        "label": "Hemato",
+                        "analysis_codes": ["CALR-OU"],
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    loaded = load_settings()
+
+    # hemato was degenerate -> healed; solide was absent -> added.
+    assert set(loaded.units) == {"hemato", "solide"}
+    assert (
+        loaded.units["hemato"]["analysis_codes"]
+        == DEFAULT_UNITS["hemato"]["analysis_codes"]
+    )

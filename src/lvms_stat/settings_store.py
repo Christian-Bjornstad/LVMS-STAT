@@ -190,6 +190,73 @@ def _read_json(path: Path) -> Any:
         raise SettingsError(f"{path.name} er ikke gyldig JSON") from exc
 
 
+def _codes_look_degenerate(saved: Any, fallback: Any) -> bool:
+    """True when a saved analysis-code list has collapsed.
+
+    The work-computer bug persisted one-entry lists instead of the full
+    specification. For a KNOWN unit a list that is missing, empty, or
+    far smaller than the built-in one (<25%) is treated as corruption,
+    not intent, and is restored from the default.
+    """
+    if not isinstance(saved, list) or not saved:
+        return True
+    if isinstance(fallback, list) and fallback:
+        return len(saved) * 4 < len(fallback)
+    return False
+
+
+def _reports_look_degenerate(saved: Any, fallback: Any) -> bool:
+    """True when the saved report set is missing one of the known-good
+    report kinds (ordered/answered/extraction) or is absent entirely."""
+    if not isinstance(saved, list) or not saved:
+        return True
+    if isinstance(fallback, list) and fallback:
+        saved_keys = {
+            item.get("job_key") for item in saved if isinstance(item, dict)
+        }
+        return any(
+            item.get("job_key") not in saved_keys
+            for item in fallback
+            if isinstance(item, dict)
+        )
+    return False
+
+
+def _heal_units(saved_units: dict[str, Any]) -> dict[str, Any]:
+    """Merge saved units with the built-in defaults, repairing collapse.
+
+    Known units get their code list and/or report set restored when they
+    look corrupted; units missing entirely are re-added; unknown units
+    are passed through untouched so user additions survive.
+    """
+    defaults = copy.deepcopy(DEFAULT_UNITS)
+    healed = copy.deepcopy(defaults)
+    for key, saved in saved_units.items():
+        if not isinstance(saved, dict):
+            continue
+        default_unit = defaults.get(key)
+        if default_unit is None:
+            healed[key] = copy.deepcopy(saved)
+            continue
+        merged_unit = copy.deepcopy(saved)
+        if _codes_look_degenerate(
+            saved.get("analysis_codes"), default_unit.get("analysis_codes")
+        ):
+            merged_unit["analysis_codes"] = copy.deepcopy(
+                default_unit.get("analysis_codes")
+            )
+        if _reports_look_degenerate(
+            saved.get("reports"), default_unit.get("reports")
+        ):
+            merged_unit["reports"] = copy.deepcopy(default_unit.get("reports"))
+        if not str(merged_unit.get("label", "")).strip():
+            merged_unit["label"] = default_unit.get("label", key)
+        if not merged_unit.get("profile") and default_unit.get("profile"):
+            merged_unit["profile"] = default_unit["profile"]
+        healed[key] = merged_unit
+    return healed
+
+
 def load_settings() -> Settings:
     """Load saved settings, healing any missing keys with defaults.
 
@@ -197,6 +264,10 @@ def load_settings() -> Settings:
     from an early manual test) must never block the GUI: every absent
     key falls back to :func:`default_settings`, and a missing or
     unreadable ``units.json`` falls back to the built-in unit set.
+
+    Degenerate unit data (collapsed analysis-code lists, missing report
+    kinds) is healed from ``DEFAULT_UNITS`` so an old broken file can
+    never silently shrink a unit's extraction again.
     """
     base = default_settings()
     try:
@@ -218,7 +289,7 @@ def load_settings() -> Settings:
             and isinstance(units_raw.get("units"), dict)
             and units_raw["units"]
         ):
-            units = copy.deepcopy(units_raw["units"])
+            units = _heal_units(units_raw["units"])
     except SettingsError:
         pass
 
