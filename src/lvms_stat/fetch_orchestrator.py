@@ -142,10 +142,13 @@ def run_incremental_fetch(
 def _write_generated_jobs(jobs_path: Path, jobs: tuple[ReportJob, ...]) -> None:
     import json
 
+    # Synthetic keys must satisfy report_job.KEY_PATTERN (lowercase only),
+    # so they are positional (batch-0, batch-1, ...) rather than derived
+    # from job_key/output_stem which contain uppercase report IDs.
     payload = {
         "jobs": [
             {
-                "job_key": f"{job.job_key}__{job.output_stem}",
+                "job_key": f"batch-{index}",
                 "report_type": job.report_type,
                 "category": job.category,
                 "report_id": job.report_id,
@@ -154,7 +157,7 @@ def _write_generated_jobs(jobs_path: Path, jobs: tuple[ReportJob, ...]) -> None:
                 "created_to": job.interval.created_to.strftime("%d.%m.%Y"),
                 "output_stem": job.output_stem,
             }
-            for job in jobs
+            for index, job in enumerate(jobs)
         ]
     }
     try:
@@ -179,9 +182,7 @@ def _run_positional_batch(
     keys (ordered/answered/extraction per report id), so each job gets a
     unique synthetic key in the written file first.
     """
-    unique_keys = tuple(
-        f"{job.job_key}__{job.output_stem}" for job in jobs
-    )
+    unique_keys = tuple(f"batch-{index}" for index in range(len(jobs)))
     return run_report_batch(
         config_path,
         jobs_path,
