@@ -26,40 +26,40 @@ class ConfigTests(unittest.TestCase):
 
         config = validate_config(
             {
-                "landing_url": "https://lvms.example.invalid/clims/",
+                "landing_url": "https://lvms.ous-hf.no/clims/",
                 "profile_directory": str(profile_directory),
             },
             repository_root=self.repo_root,
             allowed_profile_root=self.temp_root,
         )
 
-        self.assertEqual(config.landing_url, "https://lvms.example.invalid/clims/")
-        self.assertEqual(config.expected_origin, "https://lvms.example.invalid")
+        self.assertEqual(config.landing_url, "https://lvms.ous-hf.no/clims/")
+        self.assertEqual(config.expected_origin, "https://lvms.ous-hf.no")
         self.assertEqual(config.profile_directory, profile_directory.resolve())
 
     def test_accepts_matching_explicit_expected_origin(self) -> None:
         config = validate_config(
             {
-                "landing_url": "https://lvms.example.invalid/clims",
-                "expected_origin": "https://lvms.example.invalid",
+                "landing_url": "https://lvms.ous-hf.no/clims",
+                "expected_origin": "https://lvms.ous-hf.no",
                 "profile_directory": str(self.temp_root / "profile"),
             },
             repository_root=self.repo_root,
             allowed_profile_root=self.temp_root,
         )
 
-        self.assertEqual(config.expected_origin, "https://lvms.example.invalid")
+        self.assertEqual(config.expected_origin, "https://lvms.ous-hf.no")
 
     def test_rejects_explicit_expected_origin_that_does_not_match_landing_url(self) -> None:
         for configured_origin in (
             "https://other.example.invalid",
-            " https://lvms.example.invalid ",
+            " https://lvms.ous-hf.no ",
         ):
             with self.subTest(configured_origin=configured_origin):
                 with self.assertRaisesRegex(ConfigError, "expected_origin"):
                     validate_config(
                         {
-                            "landing_url": "https://lvms.example.invalid/clims",
+                            "landing_url": "https://lvms.ous-hf.no/clims",
                             "expected_origin": configured_origin,
                             "profile_directory": str(self.temp_root / "profile"),
                         },
@@ -87,11 +87,22 @@ class ConfigTests(unittest.TestCase):
                         allowed_profile_root=self.temp_root,
                     )
 
+    def test_rejects_example_landing_url_before_edge_is_started(self) -> None:
+        with self.assertRaisesRegex(ConfigError, "Oppsett"):
+            validate_config(
+                {
+                    "landing_url": "https://lvms.example.invalid/clims",
+                    "profile_directory": str(self.temp_root / "profile"),
+                },
+                repository_root=self.repo_root,
+                allowed_profile_root=self.temp_root,
+            )
+
     def test_rejects_profile_inside_repository(self) -> None:
         with self.assertRaisesRegex(ConfigError, "outside the repository"):
             validate_config(
                 {
-                    "landing_url": "https://lvms.example.invalid/",
+                    "landing_url": "https://lvms.ous-hf.no/",
                     "profile_directory": str(self.repo_root / "edge-profile"),
                 },
                 repository_root=self.repo_root,
@@ -105,7 +116,7 @@ class ConfigTests(unittest.TestCase):
         with self.assertRaisesRegex(ConfigError, "local application-data"):
             validate_config(
                 {
-                    "landing_url": "https://lvms.example.invalid/",
+                    "landing_url": "https://lvms.ous-hf.no/",
                     "profile_directory": str(self.temp_root / "shared-profile"),
                 },
                 repository_root=self.repo_root,
@@ -117,7 +128,7 @@ class ConfigTests(unittest.TestCase):
         local.mkdir()
         downloads = local / "LVMS-STAT" / "downloads"
         raw = {
-            "landing_url": "https://lvms.example.invalid/",
+            "landing_url": "https://lvms.ous-hf.no/",
             "profile_directory": str(local / "LVMS-STAT" / "edge-profile"),
             "download_directory": str(downloads),
         }
@@ -132,7 +143,7 @@ class ConfigTests(unittest.TestCase):
         local = self.temp_root / "local-app-data"
         local.mkdir()
         base = {
-            "landing_url": "https://lvms.example.invalid/",
+            "landing_url": "https://lvms.ous-hf.no/",
             "profile_directory": str(local / "profile"),
             "download_directory": str(self.temp_root / "downloads"),
         }

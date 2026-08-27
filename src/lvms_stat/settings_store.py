@@ -23,7 +23,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from lvms_stat.config import ConfigError, validate_app_config
+from lvms_stat.config import (
+    ConfigError,
+    is_placeholder_landing_url,
+    validate_app_config,
+)
 from lvms_stat.units import Unit, UnitsConfigError, load_units, validate_units
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -31,7 +35,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SETTINGS_DIRNAME = "LVMS-STAT"
 
 DEFAULT_STATISTICS_ROOT = (
-    "K:/Sensitivt/Klinikk/Sensitiv_mappe_MolPat/Hemato/Statistikk"
+    "K:/Sensitivt/Klinikk/Sensitiv_mappe_MolPat/Felles/Bioinformatikk/Statistikk"
 )
 
 
@@ -153,6 +157,12 @@ class Settings:
     units: dict[str, Any] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class BootstrapResult:
+    path: Path
+    source: str
+
+
 def settings_root() -> Path:
     base = os.environ.get("LOCALAPPDATA", "")
     if not base.strip():
@@ -169,11 +179,17 @@ def settings_path() -> Path:
 def default_settings() -> Settings:
     """First-run values - everything is editable in the GUI."""
     local = settings_root()
+    established_profile = local / "cdgc_profile"
+    profile = (
+        established_profile
+        if established_profile.is_dir()
+        else local / "edge-profile"
+    )
     environment_root = os.environ.get("LVMS_STATISTICS_ROOT", "").strip()
     return Settings(
-        landing_url="https://lvms.sykehus.no/clims",
+        landing_url="https://lvms.example.invalid/clims",
         statistics_root=environment_root or DEFAULT_STATISTICS_ROOT,
-        profile_directory=str(local / "edge-profile"),
+        profile_directory=str(profile),
         download_directory=str(local / "downloads"),
         units=copy.deepcopy(DEFAULT_UNITS),
     )
@@ -341,11 +357,151 @@ def _atomic_write(path: Path, text: str) -> None:
     os.replace(temporary, path)
 
 
+def _settings_payload(settings: Settings) -> dict[str, str]:
+    return {
+        "landing_url": settings.landing_url.strip(),
+        "expected_origin": _origin_of(settings.landing_url.strip()),
+        "statistics_root": settings.statistics_root.strip(),
+        "profile_directory": str(
+            Path(settings.profile_directory.strip()).expanduser()
+        ),
+        "download_directory": str(
+            Path(settings.download_directory.strip()).expanduser()
+        ),
+    }
+
+
+def _persist_settings(settings: Settings) -> Path:
+    root = settings_root()
+    root.mkdir(parents=True, exist_ok=True)
+    _atomic_write(
+        root / "settings.json",
+        json.dumps(_settings_payload(settings), indent=2),
+    )
+    _atomic_write(
+        root / "units.json",
+        json.dumps({"units": settings.units}, indent=2, ensure_ascii=False),
+    )
+    return root / "settings.json"
+
+
+def _ensure_local_directories(settings: Settings) -> None:
+    local_root = settings_root().parent.resolve()
+    for text_value in (
+        settings.profile_directory,
+        settings.download_directory,
+    ):
+        candidate = Path(text_value).expanduser().resolve()
+        if local_root not in candidate.parents:
+            raise SettingsError(
+                "Edge-profil og nedlastinger må ligge under Local AppData"
+            )
+        candidate.mkdir(parents=True, exist_ok=True)
+
+
+def _ensure_statistics_directories(settings: Settings) -> None:
+    statistics_root = Path(settings.statistics_root).expanduser()
+    anchor = Path(statistics_root.anchor) if statistics_root.anchor else None
+    if anchor is not None and not anchor.exists():
+        return
+    for unit_key in settings.units:
+        for folder in ("raa", "prosessert"):
+            (statistics_root / unit_key / folder).mkdir(parents=True, exist_ok=True)
+
+
+def _legacy_settings(path: Path, repository_root: Path) -> Settings | None:
+    try:
+        raw = _read_json(path)
+    except SettingsError:
+        return None
+    if not isinstance(raw, dict) or is_placeholder_landing_url(
+        raw.get("landing_url")
+    ):
+        return None
+    try:
+        validate_app_config(raw, repository_root=repository_root)
+    except ConfigError:
+        return None
+
+    migrated = default_settings()
+    migrated.landing_url = str(raw["landing_url"])
+    migrated.profile_directory = str(raw["profile_directory"])
+    migrated.download_directory = str(raw["download_directory"])
+    root_value = raw.get("statistics_root")
+
+    try:
+        units_raw = _read_json(path.with_name("units.json"))
+    except SettingsError:
+        units_raw = None
+    if isinstance(units_raw, dict):
+        if not root_value:
+            root_value = units_raw.get("statistics_root")
+        saved_units = units_raw.get("units")
+        if isinstance(saved_units, dict) and saved_units:
+            migrated.units = _heal_units(saved_units)
+    if isinstance(root_value, str) and root_value.strip():
+        migrated.statistics_root = root_value.strip()
+    return migrated
+
+
+def bootstrap_settings(
+    *,
+    repository_root: Path = REPOSITORY_ROOT,
+    explicit_config: Path | None = None,
+) -> BootstrapResult:
+    """Create app-managed files and migrate a usable legacy config once."""
+    root = settings_root()
+    root.mkdir(parents=True, exist_ok=True)
+    current = load_settings()
+    current_path = settings_path()
+    had_current_settings = current_path.exists()
+
+    candidates: list[Path] = []
+    if explicit_config is not None:
+        candidate = Path(explicit_config)
+        if candidate != current_path:
+            candidates.append(candidate)
+    candidates.extend(
+        [repository_root / "config.local.json", repository_root / "config.json"]
+    )
+
+    if not current_path.exists() or is_placeholder_landing_url(
+        current.landing_url
+    ):
+        seen: set[Path] = set()
+        for candidate in candidates:
+            resolved = candidate.resolve()
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            migrated = _legacy_settings(candidate, repository_root)
+            if migrated is None:
+                continue
+            validate_settings(migrated)
+            _ensure_local_directories(migrated)
+            _ensure_statistics_directories(migrated)
+            return BootstrapResult(
+                path=_persist_settings(migrated), source=candidate.name
+            )
+
+    established_profile = root / "cdgc_profile"
+    configured_profile = Path(current.profile_directory)
+    if (
+        established_profile.is_dir()
+        and configured_profile.name.lower() == "edge-profile"
+    ):
+        current.profile_directory = str(established_profile)
+    _ensure_local_directories(current)
+    _persist_settings(current)
+    source = "Local AppData" if had_current_settings else "standardoppsett"
+    return BootstrapResult(path=current_path, source=source)
+
+
 def validate_settings(settings: Settings) -> None:
     """Run the exact validators the pipeline will apply later."""
     if not settings.landing_url.strip():
         raise SettingsError(
-            "LVMS-adressen må fylles inn (f.eks. https://lvms.sykehus.no/clims)"
+            "LVMS-adressen må fylles inn i Oppsett"
         )
     if not settings.statistics_root.strip():
         raise SettingsError("Statistikk-roten må fylles inn")
@@ -367,25 +523,12 @@ def validate_settings(settings: Settings) -> None:
 def save_settings(settings: Settings) -> Path:
     """Validate and persist settings + units. Returns settings.json path."""
     validate_settings(settings)
-    root = settings_root()
-    root.mkdir(parents=True, exist_ok=True)
-    settings_payload = {
-        "landing_url": settings.landing_url.strip(),
-        "expected_origin": _origin_of(settings.landing_url.strip()),
-        "statistics_root": settings.statistics_root.strip(),
-        "profile_directory": str(
-            Path(settings.profile_directory.strip()).expanduser()
-        ),
-        "download_directory": str(
-            Path(settings.download_directory.strip()).expanduser()
-        ),
-    }
-    _atomic_write(root / "settings.json", json.dumps(settings_payload, indent=2))
-    _atomic_write(
-        root / "units.json",
-        json.dumps({"units": settings.units}, indent=2, ensure_ascii=False),
-    )
-    return root / "settings.json"
+    try:
+        _ensure_local_directories(settings)
+        _ensure_statistics_directories(settings)
+        return _persist_settings(settings)
+    except OSError as exc:
+        raise SettingsError("Oppsettsmappene kunne ikke opprettes") from exc
 
 
 def _origin_of(landing_url: str) -> str:

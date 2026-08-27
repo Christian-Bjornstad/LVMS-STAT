@@ -45,7 +45,7 @@ git pull
 python -m lvms_stat --version
 ```
 
-Versjonen skal være **2.0.0** eller nyere. Er den det, har du alle
+Versjonen skal være **2.0.1** eller nyere. Er den det, har du alle
 fiksene (bl.a. at ekstraksjon kjører RESULTATER-rapporten men lagres
 som EKSTRAKSJON-fil). Stemmer ikke: `git log --oneline -1` og se om
 du står på `main` med de nyeste commitene.
@@ -62,10 +62,10 @@ python -m lvms_stat app
 Åpne **⚙ Oppsett** i sidemenyen. Alle felt er forhåndsfylt med kjente
 verdier — du trenger bare å kontrollere dem:
 
-- **LVMS-adresse** — full HTTPS-adresse til LVMS (f.eks.
-  `https://lvms.sykehus.no/clims`)
+- **LVMS-adresse** — den faktiske HTTPS-adressen til LVMS; den må kontrolleres
+  lokalt og eksempeladresser avvises
 - **Statistikk-rot** — forhåndsfylt med
-  `K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Hemato\Statistikk`
+  `K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Felles\Bioinformatikk\Statistikk`
 - **Edge-profilmappe / nedlastingsmappe** — forhåndsfylt under
   `%LOCALAPPDATA%\LVMS-STAT\`
 - **Enheter** — hemato (70 analysekoder) og solide (70 + 25
@@ -91,8 +91,8 @@ statistikkgrotten fra settings.json hvis den er satt (nyttig for test).
 Pipeline trenger to lookup-filer:
 
 ```cmd
-copy "%USERPROFILE%\Downloads\Statistikk\Analyse_lookup.xlsx" "K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Hemato\Statistikk\Analyse_lookup.xlsx"
-copy "%USERPROFILE%\Downloads\Statistikk\Solide\Analyse_lookup.xlsx" "K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Hemato\Statistikk\Solide\Analyse_lookup.xlsx"
+copy "%USERPROFILE%\Downloads\Statistikk\Analyse_lookup.xlsx" "K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Felles\Bioinformatikk\Statistikk\Analyse_lookup.xlsx"
+copy "%USERPROFILE%\Downloads\Statistikk\Solide\Analyse_lookup.xlsx" "K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Felles\Bioinformatikk\Statistikk\Solide\Analyse_lookup.xlsx"
 ```
 
 (Finn de riktige kilde-mappene hvis lookup-filene ligger et annet sted —
@@ -104,8 +104,8 @@ config-mappen, statistikk-roten, repo-roten, Downloads.)
 Pipeline trenger to lookup-filer:
 
 ```cmd
-copy "%USERPROFILE%\Downloads\Statistikk\Analyse_lookup.xlsx" "K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Hemato\Statistikk\Analyse_lookup.xlsx"
-copy "%USERPROFILE%\Downloads\Statistikk\Solide\Analyse_lookup.xlsx" "K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Hemato\Statistikk\Solide\Analyse_lookup.xlsx"
+copy "%USERPROFILE%\Downloads\Statistikk\Analyse_lookup.xlsx" "K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Felles\Bioinformatikk\Statistikk\Analyse_lookup.xlsx"
+copy "%USERPROFILE%\Downloads\Statistikk\Solide\Analyse_lookup.xlsx" "K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Felles\Bioinformatikk\Statistikk\Solide\Analyse_lookup.xlsx"
 ```
 
 (Finn de riktige kilde-mappene hvis lookup-filene ligger et annet sted —

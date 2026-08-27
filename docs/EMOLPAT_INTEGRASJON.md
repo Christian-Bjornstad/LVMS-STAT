@@ -4,7 +4,7 @@ Denne filen kan gis direkte til kodechatten som arbeider med eMolPat.
 
 ## Oppdrag
 
-Legg **LVMS-STAT 2.0.0** inn som en femte applikasjon i eMolPat. Arbeidet skal
+Legg **LVMS-STAT 2.0.1** inn som en femte applikasjon i eMolPat. Arbeidet skal
 baseres på branchen
 [`codex/portal-stabilization`](https://github.com/Christian-Bjornstad/eMolPat/tree/codex/portal-stabilization),
 verifisert på commit `4239d943b87477578c405a9af86ec5194a471d8b`. Behold branchens nye
@@ -20,7 +20,7 @@ fortsatt eies av LVMS-STAT.
 - Repository: `https://github.com/Christian-Bjornstad/LVMS-STAT.git`
 - Distribution: `lvms-stat`
 - Importnavn: `lvms_stat`
-- Versjon: `2.0.0`
+- Versjon: `2.0.1`
 - Null-arguments startpunkt: `lvms_stat.portal:main`
 - Testkommando: `python -m pytest -q`
 - Runtime: Python `>=3.11`, PyQt6 og `websocket-client`
@@ -55,7 +55,7 @@ etter denne.
 4. Legg til et kort i `suite-manifest.json` med:
    - ID `lvms-stat`
    - navn `LVMS Statistikk`
-   - versjon `2.0.0`
+   - versjon `2.0.1`
    - unit `stat`
    - startpunkt `lvms_stat.portal:main`
    - korte norske og engelske beskrivelser

@@ -10,7 +10,9 @@
 6. Åpne **Oppsett** i appen, kontroller verdiene og trykk **Lagre oppsett**.
 
 Du skal ikke kopiere eller gi nytt navn til JSON-filer for å starte GUI-et.
-Appen lagrer aktivt oppsett her:
+Appen oppretter mappen, JSON-filene, nedlastingsmappen og Edge-profilmappen
+automatisk. En eksisterende `cdgc_profile` gjenbrukes. Appen lagrer aktivt
+oppsett her:
 
 ```text
 %LOCALAPPDATA%\LVMS-STAT\

@@ -10,6 +10,7 @@ from lvms_stat.batch_controls import DocumentControlIdentity
 from lvms_stat.batch_navigation import DefinedReportsPage
 from lvms_stat.batch_runner import BatchRunnerDependencies, run_report_batch
 from lvms_stat.config import AppConfig
+from lvms_stat.cdp import CdpNavigationError, CdpTimeout
 from lvms_stat.downloads import DownloadError, DownloadStatus
 from lvms_stat.report_job import ReportJob, batch_filename, validate_report_job
 from lvms_stat.control_identity import ControlIdentity
@@ -109,6 +110,10 @@ class BatchHarness:
                 harness.events.append("navigate")
                 if harness.failure_stage == "open_cleanup":
                     raise RuntimeError("synthetic navigation failure")
+                if harness.failure_stage == "lvms_dns":
+                    raise CdpNavigationError("net::ERR_NAME_NOT_RESOLVED")
+                if harness.failure_stage == "lvms_sso":
+                    raise CdpTimeout("SSO did not return to the expected origin")
                 return object()
 
             def configure_downloads(self, directory: Path) -> None:
@@ -310,6 +315,35 @@ class BatchRunnerTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         self.assertEqual(progress, [(1, 3), (2, 3), (3, 3)])
+
+    def test_logs_active_config_source_host_and_edge_profile(self) -> None:
+        harness = BatchHarness()
+
+        result, output = self.run_harness(harness)
+
+        self.assertEqual(result, 0)
+        self.assertIn("Oppsett: config.json", output)
+        self.assertIn("LVMS-vert: lvms.example.invalid", output)
+        self.assertIn(f"Edge-profil: {harness.config.profile_directory}", output)
+        self.assertNotIn(str(harness.config.download_directory), output)
+
+    def test_reports_sanitized_dns_reason_at_lvms_open(self) -> None:
+        harness = BatchHarness("lvms_dns")
+
+        result, output = self.run_harness(harness)
+
+        self.assertEqual(result, 2)
+        self.assertIn("net::ERR_NAME_NOT_RESOLVED", output)
+        self.assertNotIn("https://", output)
+
+    def test_reports_sso_timeout_reason_at_lvms_open(self) -> None:
+        harness = BatchHarness("lvms_sso")
+
+        result, output = self.run_harness(harness)
+
+        self.assertEqual(result, 2)
+        self.assertIn("SSO", output)
+        self.assertIn("Edge-profil", output)
 
     def test_stops_on_first_job_failure_without_export_retry(self) -> None:
         for stage in (
