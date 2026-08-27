@@ -35,18 +35,79 @@ def test_default_settings_are_complete(local_home: Path) -> None:
     assert settings.units["solide"]["profile"] == "solide"
 
 
+def test_default_settings_reuses_existing_cdgc_profile(local_home: Path) -> None:
+    existing = settings_root() / "cdgc_profile"
+    existing.mkdir(parents=True)
+
+    settings = default_settings()
+
+    assert Path(settings.profile_directory) == existing
+
+
+def test_bootstrap_creates_managed_json_and_local_directories(
+    local_home: Path,
+) -> None:
+    result = settings_store.bootstrap_settings(repository_root=local_home)
+
+    assert result.path == settings_path()
+    assert result.source == "standardoppsett"
+    assert settings_path().is_file()
+    assert (settings_root() / "units.json").is_file()
+    loaded = load_settings()
+    assert Path(loaded.profile_directory).is_dir()
+    assert Path(loaded.download_directory).is_dir()
+
+
+def test_bootstrap_migrates_local_config_and_creates_statistics_folders(
+    local_home: Path,
+) -> None:
+    repository = local_home / "repository"
+    repository.mkdir()
+    statistics_root = local_home / "statistics"
+    local = local_home / "local" / "LVMS-STAT"
+    legacy = {
+        "landing_url": "https://lvms.ous-hf.no/clims",
+        "expected_origin": "https://lvms.ous-hf.no",
+        "profile_directory": str(local / "cdgc_profile"),
+        "download_directory": str(local / "downloads"),
+    }
+    (repository / "config.local.json").write_text(
+        json.dumps(legacy), encoding="utf-8"
+    )
+    (repository / "units.json").write_text(
+        json.dumps(
+            {
+                "statistics_root": str(statistics_root),
+                "units": DEFAULT_UNITS,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = settings_store.bootstrap_settings(repository_root=repository)
+
+    assert result.source == "config.local.json"
+    loaded = load_settings()
+    assert loaded.landing_url == "https://lvms.ous-hf.no/clims"
+    assert loaded.statistics_root == str(statistics_root)
+    assert Path(loaded.profile_directory).name == "cdgc_profile"
+    for unit_key in ("hemato", "solide"):
+        assert (statistics_root / unit_key / "raa").is_dir()
+        assert (statistics_root / unit_key / "prosessert").is_dir()
+
+
 def test_save_then_load_roundtrip(local_home: Path) -> None:
     settings = default_settings()
-    settings.landing_url = "https://lvms.example.invalid/clims"
+    settings.landing_url = "https://lvms.ous-hf.no/clims"
     path = save_settings(settings)
     assert path == settings_path()
     assert path.exists()
     loaded = load_settings()
-    assert loaded.landing_url == "https://lvms.example.invalid/clims"
+    assert loaded.landing_url == "https://lvms.ous-hf.no/clims"
     assert loaded.units["solide"]["profile"] == "solide"
     # files are exactly the ones the pipeline reads
     payload = json.loads(path.read_text(encoding="utf-8"))
-    assert payload["expected_origin"] == "https://lvms.example.invalid"
+    assert payload["expected_origin"] == "https://lvms.ous-hf.no"
 
 
 def test_validate_rejects_missing_landing_url(local_home: Path) -> None:
@@ -58,7 +119,7 @@ def test_validate_rejects_missing_landing_url(local_home: Path) -> None:
 
 def test_validate_rejects_bad_units(local_home: Path) -> None:
     settings = default_settings()
-    settings.landing_url = "https://lvms.example.invalid/clims"
+    settings.landing_url = "https://lvms.ous-hf.no/clims"
     settings.units["hemato"]["reports"] = []
     with pytest.raises(SettingsError):
         save_settings(settings)
@@ -74,7 +135,7 @@ def test_saved_files_satisfy_pipeline_validators(
     from lvms_stat.units import load_units
 
     settings = default_settings()
-    settings.landing_url = "https://lvms.example.invalid/clims"
+    settings.landing_url = "https://lvms.ous-hf.no/clims"
     save_settings(settings)
 
     root = load_statistics_settings(settings_path())
@@ -113,7 +174,7 @@ def test_load_heals_partial_settings_file(local_home: Path) -> None:
 
 def test_load_returns_defaults_when_settings_absent(local_home: Path) -> None:
     loaded = load_settings()
-    assert loaded.landing_url == "https://lvms.sykehus.no/clims"
+    assert loaded.landing_url == "https://lvms.example.invalid/clims"
     assert loaded.statistics_root.endswith("Statistikk")
 
 

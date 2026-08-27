@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from types import SimpleNamespace
 
 from lvms_stat.__main__ import build_parser, main
 
@@ -25,19 +25,22 @@ class CliTests(unittest.TestCase):
         result = main(
             ["app", "--config", "safe.json"],
             app_runner=lambda path: calls.append(path) or 9,
+            setup_runner=lambda **kwargs: SimpleNamespace(
+                path=kwargs["explicit_config"]
+            ),
         )
         self.assertEqual(result, 9)
         self.assertEqual(calls, [Path("safe.json")])
 
-    def test_app_without_config_uses_app_managed_settings(self) -> None:
+    def test_app_without_config_bootstraps_app_managed_settings(self) -> None:
         calls: list[Path] = []
         managed = Path("C:/Users/test/AppData/Local/LVMS-STAT/settings.json")
 
-        with patch("lvms_stat.__main__.settings_path", return_value=managed):
-            result = main(
-                ["app"],
-                app_runner=lambda path: calls.append(path) or 0,
-            )
+        result = main(
+            ["app"],
+            app_runner=lambda path: calls.append(path) or 0,
+            setup_runner=lambda **kwargs: SimpleNamespace(path=managed),
+        )
 
         self.assertEqual(result, 0)
         self.assertEqual(calls, [managed])

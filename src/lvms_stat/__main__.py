@@ -7,7 +7,7 @@ from pathlib import Path
 from lvms_stat import __version__
 from lvms_stat.batch_runner import run_report_batch
 from lvms_stat.qt_app import run_app
-from lvms_stat.settings_store import settings_path
+from lvms_stat.settings_store import bootstrap_settings
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -65,13 +65,15 @@ def main(
     app_runner: Callable[[Path], int] = run_app,
     batch_runner: Callable[[Path, Path, tuple[str, ...]], int] = run_report_batch,
     scheduled_runner: Callable[..., int] | None = None,
+    setup_runner: Callable[..., object] = bootstrap_settings,
 ) -> int:
     from lvms_stat.scheduled import run_scheduled
 
     runner = scheduled_runner or run_scheduled
     arguments = build_parser().parse_args(argv)
     if arguments.command == "app":
-        return app_runner(arguments.config or settings_path())
+        setup = setup_runner(explicit_config=arguments.config)
+        return app_runner(Path(getattr(setup, "path")))
     if arguments.command == "auto":
         return runner(
             arguments.config,
