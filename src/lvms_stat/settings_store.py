@@ -35,7 +35,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SETTINGS_DIRNAME = "LVMS-STAT"
 
 DEFAULT_STATISTICS_ROOT = (
-    "K:/Sensitivt/Klinikk/Sensitiv_mappe_MolPat/Hemato/Statistikk"
+    "K:/Sensitivt/Klinikk/Sensitiv_mappe_MolPat/Felles/Bioinformatikk/Statistikk"
 )
 
 

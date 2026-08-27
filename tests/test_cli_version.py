@@ -3,16 +3,21 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_version_constant_is_release_version() -> None:
     import lvms_stat
 
-    assert lvms_stat.__version__ == "2.0.0"
+    assert lvms_stat.__version__ == "2.0.1"
 
 
 def test_cli_reports_version() -> None:
@@ -22,9 +27,10 @@ def test_cli_reports_version() -> None:
         text=True,
         timeout=60,
         check=False,
+        env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
     )
     assert proc.returncode == 0, proc.stderr
-    assert "2.0.0" in proc.stdout
+    assert "2.0.1" in proc.stdout
 
 
 def test_cli_rejects_unknown_command() -> None:

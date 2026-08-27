@@ -102,7 +102,7 @@ PASS [solide]: matches R gold standard
 ## 📦 Produksjon på jobb-PC
 
 ```cmd
-setx LVMS_STATISTICS_ROOT "K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Hemato\Statistikk"
+setx LVMS_STATISTICS_ROOT "K:\Sensitivt\Klinikk\Sensitiv_mappe_MolPat\Felles\Bioinformatikk\Statistikk"
 python -m lvms_stat auto --config "%LOCALAPPDATA%\LVMS-STAT\settings.json"
 ```
 
@@ -116,6 +116,12 @@ personlig konfigurasjon: **Oppsett** lagrer aktive verdier i
 `%LOCALAPPDATA%\LVMS-STAT\settings.json` og `units.json`, slik at `git pull`
 ikke overskriver jobb-PC-oppsettet. `jobs.json` er kun relevant for den
 eksplisitte `run-batch`-kommandoen.
+
+Ved vanlig GUI-/eMolPat-start oppretter appen selv Local AppData-mappen,
+`settings.json`, `units.json`, nedlastingsmappen og Edge-profilmappen. En
+eksisterende `cdgc_profile` gjenbrukes automatisk. Gyldig eldre
+`config.local.json` eller `config.json` migreres én gang; eksempeladresser
+stoppes før Edge åpnes.
 
 Integrasjon i eMolPat er beskrevet i
 **[docs/EMOLPAT_INTEGRASJON.md](docs/EMOLPAT_INTEGRASJON.md)**.

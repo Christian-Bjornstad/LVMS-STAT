@@ -96,6 +96,35 @@ def test_bootstrap_migrates_local_config_and_creates_statistics_folders(
         assert (statistics_root / unit_key / "prosessert").is_dir()
 
 
+def test_bootstrap_repairs_saved_default_to_existing_cdgc_profile(
+    local_home: Path,
+) -> None:
+    root = settings_root()
+    edge_profile = root / "edge-profile"
+    cdgc_profile = root / "cdgc_profile"
+    cdgc_profile.mkdir(parents=True)
+    root.mkdir(parents=True, exist_ok=True)
+    settings_path().write_text(
+        json.dumps(
+            {
+                "landing_url": "https://lvms.ous-hf.no/clims",
+                "expected_origin": "https://lvms.ous-hf.no",
+                "statistics_root": str(local_home / "statistics"),
+                "profile_directory": str(edge_profile),
+                "download_directory": str(root / "downloads"),
+            }
+        ),
+        encoding="utf-8",
+    )
+    (root / "units.json").write_text(
+        json.dumps({"units": DEFAULT_UNITS}), encoding="utf-8"
+    )
+
+    settings_store.bootstrap_settings(repository_root=local_home)
+
+    assert Path(load_settings().profile_directory) == cdgc_profile
+
+
 def test_save_then_load_roundtrip(local_home: Path) -> None:
     settings = default_settings()
     settings.landing_url = "https://lvms.ous-hf.no/clims"

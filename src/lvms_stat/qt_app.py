@@ -414,7 +414,7 @@ def build_dashboard(
 
     field_landing = add_field(
         "LVMS-adresse",
-        "Full HTTPS-adressen til LVMS, f.eks. https://lvms.sykehus.no/clims",
+        "Full HTTPS-adresse til LVMS. Eksempeladresser kan ikke brukes.",
     )
     field_root = add_field(
         "Statistikk-rot (K:\\)",
@@ -592,10 +592,22 @@ def build_dashboard(
         return settings
 
     def refresh_setup_status() -> None:
-        from lvms_stat.settings_store import settings_path
+        from lvms_stat.settings_store import (
+            load_settings,
+            settings_path,
+            validate_settings,
+        )
 
         if settings_path().exists():
-            save_status.setText("Lagret oppsett i bruk.")
+            try:
+                validate_settings(load_settings())
+            except Exception:
+                save_status.setText(
+                    f"Opprettet automatisk: {settings_path()} — fyll inn "
+                    "faktisk LVMS-adresse og lagre."
+                )
+            else:
+                save_status.setText(f"Oppsett i bruk: {settings_path()}")
         else:
             save_status.setText(
                 "Ikke satt opp ennå - fyll ut og lagre for å ta i bruk appen."
