@@ -27,7 +27,7 @@ class PythonFellesScriptTests(unittest.TestCase):
             )
 
         self.assertEqual(result, 0)
-        self.assertEqual(calls[0][-1], str(project))
+        self.assertEqual(Path(calls[0][-1]), project.resolve())
         self.assertEqual(imported, ["PyQt6", "websocket", "lvms_stat"])
 
     def test_start_script_needs_no_local_json_files_and_dispatches_app(self) -> None:
